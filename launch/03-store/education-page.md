@@ -14,8 +14,8 @@ A lab-grown diamond is a diamond — carbon atoms in the same crystal structure,
 
 There are two ways to grow one:
 
-- **HPHT (High Pressure, High Temperature)** recreates the conditions deep in the Earth where natural diamonds formed — a small diamond seed, carbon, and presses exerting enormous pressure at around 1,500°C.
-- **CVD (Chemical Vapour Deposition)** grows a lab-grown diamond layer by layer inside a vacuum chamber, as carbon atoms from an energised gas settle onto a diamond seed plate.
+- **HPHT (High Pressure, High Temperature)** recreates the conditions deep in the Earth where natural diamonds formed — a tiny seed crystal, carbon, and presses exerting enormous pressure at around 1,500°C.
+- **CVD (Chemical Vapour Deposition)** grows a lab-grown diamond layer by layer inside a vacuum chamber, as carbon atoms from an energised gas settle onto a seed crystal.
 
 Both methods produce the real thing: a lab-grown diamond, not an imitation. (Cubic zirconia and moissanite, by contrast, are different materials entirely — simulants that only look similar.)
 
