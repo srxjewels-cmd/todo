@@ -96,7 +96,7 @@ Hello {{ first_name|default:'' }},
 
 A quick note about the stones we set — because "lab-grown" gets used loosely, and we'd like to be precise.
 
-**A lab-grown diamond is a real diamond-crystal of pure carbon.** Chemically, physically, and optically identical to a mined stone — the same hardness, the same fire, the same brilliance. The only difference is origin: grown above ground over weeks rather than mined from it. Not cubic zirconia, not moissanite, not a simulant of any kind.
+**A lab-grown diamond is real — pure crystallised carbon.** Chemically, physically, and optically identical to a mined stone — the same hardness, the same fire, the same brilliance. The only difference is origin: grown above ground over weeks rather than mined from it. Not cubic zirconia, not moissanite, not a simulant of any kind.
 
 **Graded to the same standard.** Every lab-grown diamond we set is assessed by IGI — the International Gemological Institute — against the same criteria used for mined stones: the 4Cs of cut, colour, clarity, and carat.
 
