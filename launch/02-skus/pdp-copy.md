@@ -21,7 +21,7 @@ The Meridian closes with a box clasp and figure-eight safety catch, the same clo
 **Spec bullets:**
 - Round brilliant lab-grown diamonds, D–F colour, VS clarity or better, IGI-certified
 - Total carat weight options: 2.00 ctw (110 stones, 1.7 mm) / 3.00 ctw (100 stones, 2.0 mm) / 5.00 ctw (100 stones, 2.4 mm)
-- Individual four-prong crown settings; diamond-set section ~30–34 cm across front and sides; polished oval-link back section
+- Individual four-prong crown settings; lab-grown diamond-set section ~30–34 cm across front and sides; polished oval-link back section
 - Length 16 in / 40.5 cm; made-to-order 15–18 in on request at no charge
 - Box clasp with figure-eight safety catch
 - 18k gold vermeil over sterling silver, 2.5 microns+
@@ -45,7 +45,7 @@ The Meridian closes with a box clasp and figure-eight safety catch, the same clo
 
 Every jewellery box is built on one pair of solitaire studs — the earrings that work at 7 am and 11 pm, with everything, forever. Dawn is that pair, done properly.
 
-Each stud holds a round brilliant lab-grown diamond, hand-matched to its partner for size and brightness, graded D–F colour and VS clarity or better. These are real diamonds in every measurable way — grown above ground instead of mined, which is the only reason a pair like this can cost hundreds instead of thousands. The low-profile martini basket keeps the stone close to the ear, so it sits flat, catches light from every angle and never droops.
+Each stud holds a round brilliant lab-grown diamond, hand-matched to its partner for size and brightness, graded D–F colour and VS clarity or better. Lab-grown diamonds are real in every measurable way — grown above ground instead of mined, which is the only reason a pair like this can cost hundreds instead of thousands. The low-profile martini basket keeps the stone close to the ear, so it sits flat, catches light from every angle and never droops.
 
 Choose your presence: 0.30 total carats of lab-grown diamonds for everyday polish, 0.50 for the classic look most women wear for decades, or 0.75 when you want the first thing people notice to be your ears.
 
@@ -173,7 +173,7 @@ Like everything we make, Comet is made of real, certified stones and priced at i
 
 One stone, one fine chain, nothing to hide behind — the solitaire pendant is jewellery's simplest sentence, which is why the stone has to be excellent. Aria's is: a round brilliant lab-grown diamond graded D–F colour and VS clarity or better, held in a four-prong basket that lifts it just off the skin so light enters from every side.
 
-A lab-grown diamond is a real diamond — same crystal, same hardness, same fire — grown above ground in weeks rather than mined over millennia. That's the entire reason Aria can put a visibly half-carat-plus stone at your collarbone for under $400, a price the mined-stone world simply cannot say out loud.
+A lab-grown diamond is real — the same crystal, hardness and fire as a natural diamond — grown above ground in weeks rather than mined over millennia. That's the entire reason Aria can put a visibly half-carat-plus stone at your collarbone for under $400, a price the mined-stone world simply cannot say out loud.
 
 Choose 0.30 carats for everyday delicacy, 0.50 for the classic, or 0.75 for presence you can see across a room. The fine cable chain adjusts from 16 to 18 inches, so it layers cleanly with everything — including our Vesper pendant, which was designed to sit one layer below it.
 
