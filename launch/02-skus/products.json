@@ -1,0 +1,180 @@
+[
+  {
+    "sku_code": "RIV-01",
+    "title": "Meridian Lab-Grown Diamond Riviere Necklace",
+    "productType": "Necklace",
+    "tags": ["lab-grown diamond", "riviere", "necklace", "hero", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>The riviere is the piece jewellery houses save for the top shelf: a single unbroken river of stones, each one set by hand in its own four-prong crown. The Meridian is that piece &mdash; made honest. Uniform round brilliant lab-grown diamonds, graded D&ndash;F colour and VS clarity or better, run across the front and sides of the necklace, finished with a mirror-polished link section at the back so it drapes flat and sits comfortably against the collarbone.</p><p>Choose 2.00, 3.00 or 5.00 total carats of lab-grown diamonds. A natural-stone riviere like this would run well into five figures; ours doesn&rsquo;t, because lab-grown diamonds cost radically less to grow than natural diamonds cost to mine &mdash; identical in composition, hardness and fire. We pass that difference straight to you, at a fair price we never inflate and never discount.</p><ul><li>Round brilliant lab-grown diamonds, D&ndash;F colour, VS clarity or better, IGI-certified</li><li>2.00 ctw (110 stones, 1.7 mm) / 3.00 ctw (100 stones, 2.0 mm) / 5.00 ctw (100 stones, 2.4 mm)</li><li>Individual four-prong crown settings; polished oval-link back section for comfort and drape</li><li>Length 16 in / 40.5 cm; made-to-order 15&ndash;18 in on request at no charge</li><li>Box clasp with figure-eight safety catch</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li></ul><p><strong>Caring for vermeil:</strong> remove before swimming, showering and workouts; apply perfume before you dress; wipe with the soft cloth included and store in your [BRAND] pouch.</p><p><strong>Certified, not claimed.</strong> Your Meridian ships with its own IGI finished-jewellery report verifying the total carat weight, colour range (D&ndash;F) and clarity (VS+) of its lab-grown diamonds &mdash; verifiable any time at igi.org.</p><p><strong>Made to order, just for you.</strong> Your riviere is set, polished and quality-checked after you order, and ships in approximately 7 days with tracked express delivery. No overproduction, no inflated markup.</p>",
+    "options": ["Total Carat Weight"],
+    "variants": [
+      {
+        "price": "795.00",
+        "sku": "RIV-01-200",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "2.00 ctw" }]
+      },
+      {
+        "price": "1095.00",
+        "sku": "RIV-01-300",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "3.00 ctw" }]
+      },
+      {
+        "price": "1495.00",
+        "sku": "RIV-01-500",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "5.00 ctw" }]
+      }
+    ],
+    "collection": "core"
+  },
+  {
+    "sku_code": "STU-01",
+    "title": "Dawn Lab-Grown Diamond Solitaire Studs",
+    "productType": "Earrings",
+    "tags": ["lab-grown diamond", "studs", "earrings", "solitaire", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>Every jewellery box is built on one pair of solitaire studs &mdash; the earrings that work at 7 am and 11 pm, with everything, forever. Dawn is that pair, done properly. Each stud holds a round brilliant lab-grown diamond, hand-matched to its partner for size and brightness, graded D&ndash;F colour and VS clarity or better.</p><p>Lab-grown diamonds are real in every measurable way &mdash; grown above ground instead of mined, which is the only reason a pair like this can cost hundreds instead of thousands. The low-profile martini basket keeps each stone close to the ear, so it sits flat and catches light from every angle. Choose 0.30 total carats of lab-grown diamonds for everyday polish, 0.50 for the classic, or 0.75 when you want the first thing people notice to be your ears.</p><ul><li>Matched pair of round brilliant lab-grown diamonds, D&ndash;F colour, VS clarity or better, IGI-certified</li><li>Per pair: 0.30 ctw (3.4 mm) / 0.50 ctw (4.1 mm) / 0.75 ctw (4.7 mm)</li><li>Four-prong martini basket setting, low profile</li><li>Double-notched posts with secure push backs</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li></ul><p><strong>Caring for vermeil:</strong> remove before swimming, showering and workouts; keep perfume and hairspray off the metal; store in your [BRAND] pouch between wears.</p><p><strong>Certified, not claimed.</strong> Dawn ships with an IGI finished-jewellery report verifying the carat weight, colour range (D&ndash;F) and clarity (VS+) of your lab-grown diamonds &mdash; verifiable at igi.org.</p><p><strong>Made to order, just for you.</strong> Your studs are set, matched and quality-checked after you order, and ship in approximately 7 days with tracked delivery. No warehouse stock, no overproduction, no inflated markup.</p>",
+    "options": ["Total Carat Weight"],
+    "variants": [
+      {
+        "price": "195.00",
+        "sku": "STU-01-030",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "0.30 ctw" }]
+      },
+      {
+        "price": "265.00",
+        "sku": "STU-01-050",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "0.50 ctw" }]
+      },
+      {
+        "price": "345.00",
+        "sku": "STU-01-075",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "0.75 ctw" }]
+      }
+    ],
+    "collection": "core"
+  },
+  {
+    "sku_code": "STU-02",
+    "title": "Nova Lab-Grown Diamond Bezel Studs",
+    "productType": "Earrings",
+    "tags": ["lab-grown diamond", "studs", "earrings", "bezel", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>The bezel is the setting for women who don&rsquo;t babysit their jewellery. A seamless rim of polished metal wraps each round brilliant lab-grown diamond completely &mdash; nothing to snag on knitwear or hair, no prongs to check. It&rsquo;s the most secure way to set a stone, and the most quietly modern.</p><p>Each Nova stud carries a lab-grown diamond graded D&ndash;F colour and VS clarity or better, hand-matched as a pair. The bright metal rim reads as part of the stone, so each earring wears visually larger than its carat weight. Choose 0.20 total carats of lab-grown diamonds for a clean, minimal dot of light, or 0.50 total carats for full presence. Both sit flush and low on the ear &mdash; comfortable under headphones and helmets.</p><ul><li>Matched pair of round brilliant lab-grown diamonds, D&ndash;F colour, VS clarity or better, IGI-certified</li><li>Per pair: 0.20 ctw (3.0 mm stones) / 0.50 ctw (4.0 mm stones)</li><li>Full bezel setting, seamless polished rim; face-up look ~4.2 mm / ~5.2 mm</li><li>Double-notched posts with secure push backs; flush, low-profile fit</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li></ul><p><strong>Caring for vermeil:</strong> remove before water and workouts, keep cosmetics off the metal, and store in your [BRAND] pouch.</p><p><strong>Certified, not claimed.</strong> Nova ships with an IGI finished-jewellery report confirming the carat weight, colour range (D&ndash;F) and clarity (VS+) of your lab-grown diamonds &mdash; verifiable at igi.org.</p><p><strong>Made to order, just for you.</strong> Each pair is set and quality-checked after you order and ships in approximately 7 days with tracked delivery. Making to order is how we avoid overproduction &mdash; and how the price stays fair.</p>",
+    "options": ["Total Carat Weight"],
+    "variants": [
+      {
+        "price": "175.00",
+        "sku": "STU-02-020",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "0.20 ctw" }]
+      },
+      {
+        "price": "285.00",
+        "sku": "STU-02-050",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "0.50 ctw" }]
+      }
+    ],
+    "collection": "core"
+  },
+  {
+    "sku_code": "HUG-01",
+    "title": "Ember Lab-Grown Diamond Pavé Huggies",
+    "productType": "Earrings",
+    "tags": ["lab-grown diamond", "huggies", "earrings", "pave", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>Huggies are the hardest-working earrings you&rsquo;ll own &mdash; the pair that goes in and simply stays. Ember earns that permanent spot with a face of micro-pavé lab-grown diamonds, each tiny stone set by hand under a jeweller&rsquo;s microscope so the front of the hoop is an unbroken line of light.</p><p>Every stone is a genuine lab-grown diamond, D&ndash;F colour, VS clarity or better &mdash; the same grading standard as our statement pieces, because a small stone is not an excuse for a lesser one. The hoops are hollow-formed for lightness, hug the lobe closely, and close with a firm click of the hinged post. Choose 11 mm for a tight hug, 13 mm for a touch more presence &mdash; or both, because huggies were born to stack.</p><ul><li>Micro-pavé round brilliant lab-grown diamonds, D&ndash;F colour, VS clarity or better, IGI-certified</li><li>Per pair: 11 mm (16 stones, 0.15 ctw) / 13 mm (20 stones, 0.30 ctw)</li><li>Hollow-form 2 mm tube; hinged click-snap post closure</li><li>Front-face pavé, hand-set under magnification</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li></ul><p><strong>Caring for vermeil:</strong> remove before swimming, showering and the gym, and store in your [BRAND] pouch overnight.</p><p><strong>Certified, not claimed.</strong> Even our smallest stones are graded: Ember ships with an IGI finished-jewellery report verifying the total carat weight, colour range (D&ndash;F) and clarity (VS+) of its lab-grown diamonds &mdash; verifiable at igi.org.</p><p><strong>Made to order, just for you.</strong> Your huggies are set and quality-checked after you order and ship in approximately 7 days with tracked delivery. No stockpiles, no overproduction, no inflated price.</p>",
+    "options": ["Hoop Size"],
+    "variants": [
+      {
+        "price": "165.00",
+        "sku": "HUG-01-11",
+        "optionValues": [{ "optionName": "Hoop Size", "name": "11 mm (0.15 ctw)" }]
+      },
+      {
+        "price": "195.00",
+        "sku": "HUG-01-13",
+        "optionValues": [{ "optionName": "Hoop Size", "name": "13 mm (0.30 ctw)" }]
+      }
+    ],
+    "collection": "core"
+  },
+  {
+    "sku_code": "HUG-02",
+    "title": "Comet Lab-Grown Diamond Drop Huggies",
+    "productType": "Earrings",
+    "tags": ["lab-grown diamond", "huggies", "earrings", "drop", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>Some earrings sit still. Comet doesn&rsquo;t. From a clean, polished huggie swings a single bezel-set lab-grown diamond that moves when you move &mdash; turning your head, laughing, talking with your hands. Every movement catches light, which is exactly the point.</p><p>Each drop is a round brilliant lab-grown diamond, D&ndash;F colour, VS clarity or better, wrapped in a smooth bezel that lets it swing freely without ever feeling fragile. Choose 0.20 total carats of lab-grown diamonds for a delicate flicker, or 0.40 total carats when you want the room to notice. The 12 mm huggie closes with a hinged click and sits snug to the lobe, so all the drama stays in the drop &mdash; structured enough for a 9 am meeting, alive enough for candlelight.</p><ul><li>Bezel-set round brilliant lab-grown diamond drop on each ear, D&ndash;F colour, VS clarity or better, IGI-certified</li><li>Per pair: 0.20 ctw (3.0 mm drops) / 0.40 ctw (3.8 mm drops)</li><li>12 mm polished huggie hoop; hinged click-snap post closure</li><li>Free-swinging bezel drop for movement and light</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li></ul><p><strong>Caring for vermeil:</strong> remove before water and exercise, keep perfume off the metal, wipe gently after wear and store in your [BRAND] pouch.</p><p><strong>Certified, not claimed.</strong> Comet ships with an IGI finished-jewellery report verifying the carat weight, colour range (D&ndash;F) and clarity (VS+) of its lab-grown diamonds &mdash; verifiable at igi.org.</p><p><strong>Made to order, just for you.</strong> Each pair is assembled, set and quality-checked after you order, shipping in approximately 7 days with tracked delivery. Made to order keeps our waste at zero and our prices honest.</p>",
+    "options": ["Total Carat Weight"],
+    "variants": [
+      {
+        "price": "205.00",
+        "sku": "HUG-02-020",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "0.20 ctw" }]
+      },
+      {
+        "price": "255.00",
+        "sku": "HUG-02-040",
+        "optionValues": [{ "optionName": "Total Carat Weight", "name": "0.40 ctw" }]
+      }
+    ],
+    "collection": "core"
+  },
+  {
+    "sku_code": "PEN-01",
+    "title": "Aria Lab-Grown Diamond Solitaire Pendant",
+    "productType": "Necklace",
+    "tags": ["lab-grown diamond", "pendant", "necklace", "solitaire", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>One stone, one fine chain, nothing to hide behind &mdash; the solitaire pendant is jewellery&rsquo;s simplest sentence, which is why the stone has to be excellent. Aria&rsquo;s is: a round brilliant lab-grown diamond graded D&ndash;F colour and VS clarity or better, held in a four-prong basket that lifts it just off the skin so light enters from every side.</p><p>A lab-grown diamond is real &mdash; the same crystal, hardness and fire as a natural diamond &mdash; grown above ground in weeks rather than mined over millennia. That&rsquo;s the entire reason Aria can put a visibly half-carat-plus stone at your collarbone for under $400. Choose 0.30 carats for everyday delicacy, 0.50 for the classic, or 0.75 for presence you can see across a room. The fine cable chain adjusts from 16 to 18 inches, so it layers cleanly with everything.</p><ul><li>Round brilliant lab-grown diamond, D&ndash;F colour, VS clarity or better, IGI-certified</li><li>Centre stone options: 0.30 ct (4.3 mm) / 0.50 ct (5.1 mm) / 0.75 ct (5.8 mm)</li><li>Four-prong basket setting</li><li>1.1 mm cable chain, adjustable 16&ndash;18 in / 40.5&ndash;45.5 cm, lobster clasp</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li></ul><p><strong>Caring for vermeil:</strong> remove before swimming and showering, spritz perfume before you put it on, and let the chain rest flat in your [BRAND] pouch overnight.</p><p><strong>Certified, not claimed.</strong> Aria ships with an IGI finished-jewellery report verifying your lab-grown diamond&rsquo;s carat weight, colour range (D&ndash;F) and clarity (VS+) &mdash; verifiable at igi.org.</p><p><strong>Made to order, just for you.</strong> Your pendant is set, polished and quality-checked after you order, and ships in approximately 7 days with tracked delivery. We make exactly what&rsquo;s ordered &mdash; nothing more &mdash; and price it fairly because of that.</p>",
+    "options": ["Carat Weight"],
+    "variants": [
+      {
+        "price": "215.00",
+        "sku": "PEN-01-030",
+        "optionValues": [{ "optionName": "Carat Weight", "name": "0.30 ct" }]
+      },
+      {
+        "price": "295.00",
+        "sku": "PEN-01-050",
+        "optionValues": [{ "optionName": "Carat Weight", "name": "0.50 ct" }]
+      },
+      {
+        "price": "395.00",
+        "sku": "PEN-01-075",
+        "optionValues": [{ "optionName": "Carat Weight", "name": "0.75 ct" }]
+      }
+    ],
+    "collection": "core"
+  },
+  {
+    "sku_code": "PEN-02",
+    "title": "Vesper Lab-Grown Diamond East-West Pendant",
+    "productType": "Necklace",
+    "tags": ["lab-grown diamond", "pendant", "necklace", "emerald cut", "east-west", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>Turn an emerald cut on its side and something interesting happens: it stops being traditional and starts being a point of view. Vesper sets a half-carat emerald-cut lab-grown diamond east-west &mdash; horizontally &mdash; in a sleek bezel on a fine paperclip chain: a classic you haven&rsquo;t seen before.</p><p>Emerald cuts don&rsquo;t sparkle like rounds; they flash. Long, stepped facets create the &ldquo;hall of mirrors&rdquo; effect &mdash; broad planes of light that read calm, deliberate, expensive. Ours is a genuine lab-grown diamond, D&ndash;F colour, VS clarity or better, its clean geometry framed by the polished bezel so the profile stays razor-thin against the skin. Step-cut stones this clear are usually the preserve of four-figure price tags; growing the stone above ground instead of mining it is what puts Vesper at $315. Wear it alone at 16 inches, or layer it under our Aria solitaire at 18.</p><ul><li>Emerald-cut lab-grown diamond, 0.50 ct (6 x 4 mm), D&ndash;F colour, VS clarity or better, IGI-certified</li><li>East-west (horizontal) full-bezel setting; slim profile</li><li>Fine paperclip chain, 18 in / 45.5 cm, fastens at 16 in; lobster clasp</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li></ul><p><strong>Caring for vermeil:</strong> remove before water and workouts, keep lotions off the chain, and store flat in your [BRAND] pouch.</p><p><strong>Certified, not claimed.</strong> Vesper ships with an IGI finished-jewellery report verifying your emerald-cut lab-grown diamond&rsquo;s carat weight, colour range (D&ndash;F) and clarity (VS+) &mdash; verifiable at igi.org.</p><p><strong>Made to order, just for you.</strong> Your Vesper is set, polished and quality-checked after you order, shipping in approximately 7 days with tracked delivery. Made to order, made without waste, priced without games.</p>",
+    "options": ["Title"],
+    "variants": [
+      {
+        "price": "315.00",
+        "sku": "PEN-02-050",
+        "optionValues": [{ "optionName": "Title", "name": "Default Title" }]
+      }
+    ],
+    "collection": "core"
+  },
+  {
+    "sku_code": "HALO-SP-01",
+    "title": "Heirloom Natural Diamond Halo Pendant",
+    "productType": "Necklace",
+    "tags": ["natural diamond", "halo", "pendant", "necklace", "special collection", "18k gold vermeil", "made to order"],
+    "descriptionHtml": "<p>Everything else we make celebrates the lab-grown diamond. This piece honours the original. The Heirloom is the single natural-diamond design in our collection &mdash; one deliberate exception, clearly labelled, for the moments that call for a stone the earth made first.</p><p>At its centre sits a natural diamond, mined not grown: a round brilliant of 0.40 or 0.50 carats, G&ndash;H colour, SI1 clarity, individually certified by IGI with its own natural diamond report. Around it, a halo of twelve smaller natural diamonds widens the face-up look to that of a far larger solitaire. <strong>Every stone in this pendant is a natural diamond &mdash; it contains no lab-grown stones.</strong> Some occasions &mdash; a landmark birthday, a christening, something meant to be handed down with its certificate &mdash; carry a weight of tradition that calls for a natural stone. We simply insist you know exactly what you&rsquo;re buying, and pay a fair, transparent price for it.</p><ul><li>Centre: natural diamond (mined), round brilliant, G&ndash;H colour, SI1 clarity, IGI-certified &mdash; 0.40 ct (4.8 mm) or 0.50 ct (5.1 mm)</li><li>Halo: 12 natural diamonds, ~0.10 ctw &mdash; natural diamonds only, no lab-grown stones</li><li>Total weight ~0.50 / ~0.60 tcw; face-up spread ~8.0&ndash;8.4 mm</li><li>Four-prong centre, shared-prong halo; 1.2 mm cable chain, adjustable 16&ndash;18 in, lobster clasp</li><li><strong>18k gold vermeil over sterling silver, 2.5 microns+</strong></li><li>Special Collection: the only natural-diamond piece in the [BRAND] line</li></ul><p><strong>Caring for vermeil:</strong> remove before swimming and showering, keep perfume off the piece, and store it in its [BRAND] case with its certificates.</p><p><strong>Doubly certified.</strong> Your Heirloom ships with two IGI documents: an IGI natural diamond report for the centre stone &mdash; confirming it is a natural, mined stone of the stated weight, colour and clarity &mdash; and an IGI finished-jewellery report covering the complete pendant, halo included. Both verifiable at igi.org.</p><p><strong>Made to order, just for you.</strong> Each Heirloom is set around its individually certified natural diamond after you order, and ships in approximately 7 days with tracked, signature-required express delivery.</p>",
+    "options": ["Centre Stone"],
+    "variants": [
+      {
+        "price": "1595.00",
+        "sku": "HALO-SP-01-040",
+        "optionValues": [{ "optionName": "Centre Stone", "name": "0.40 ct natural diamond" }]
+      },
+      {
+        "price": "1995.00",
+        "sku": "HALO-SP-01-050",
+        "optionValues": [{ "optionName": "Centre Stone", "name": "0.50 ct natural diamond" }]
+      }
+    ],
+    "collection": "special"
+  }
+]

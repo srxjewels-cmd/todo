@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<!-- SEO: replace [BRAND] before publishing -->
+<title>[BRAND] — IGI-Certified Lab-Grown Diamonds &amp; 18k Gold Vermeil, Made to Order</title>
+<meta name="description" content="Real 18k gold vermeil over sterling silver, 2.5 microns+. Real IGI-certified lab-grown diamonds. Made to order — fine-jewellery quality at demi-fine prices. Join the waitlist.">
+<meta property="og:title" content="[BRAND] — Coming Soon">
+<meta property="og:description" content="Real 18k gold vermeil and real IGI-certified lab-grown diamonds, made to order. Fine-jewellery quality at demi-fine prices. Join the waitlist for first access.">
+<meta property="og:type" content="website">
+
+<style>
+  /* ================================================================
+     [BRAND] — Coming-Soon Page
+     Palette: ivory / champagne / near-black · quiet luxury
+     Self-contained: no external fonts, images, or scripts.
+     ================================================================ */
+
+  :root {
+    --ivory:        #F7F2E9;   /* page ground */
+    --ivory-deep:   #F0E9DC;   /* raised panels */
+    --champagne:    #B9995F;   /* accent, small doses only */
+    --hairline:     #DCCFB4;   /* rules and borders */
+    --ink:          #17140F;   /* near-black text */
+    --ink-soft:     #6E6557;   /* secondary text */
+    --serif: "Didot", "Bodoni MT", "Bodoni 72", "Cochin", "Hoefler Text",
+             Georgia, "Times New Roman", serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+             "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--ivory);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    flex: 1;
+  }
+
+  /* ---------- Wordmark ---------- */
+
+  header {
+    text-align: center;
+    padding: 3.5rem 0 0;
+  }
+
+  /* Replace the text below with the final wordmark (SVG inline or styled text). */
+  .wordmark {
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 400;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;   /* optically re-centres tracked text */
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .wordmark-rule {
+    width: 2.5rem;
+    height: 1px;
+    background: var(--champagne);
+    border: 0;
+    margin: 1.4rem auto 0;
+  }
+
+  /* ---------- Hero ---------- */
+
+  .hero {
+    text-align: center;
+    padding: 4.5rem 0 4rem;
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
+    text-transform: uppercase;
+    color: var(--champagne);
+    margin-bottom: 1.75rem;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(2rem, 5.5vw, 3.1rem);
+    line-height: 1.22;
+    letter-spacing: 0.01em;
+    max-width: 20ch;
+    margin: 0 auto;
+  }
+
+  .hero p {
+    max-width: 34rem;
+    margin: 1.75rem auto 0;
+    color: var(--ink-soft);
+    font-size: 1.02rem;
+  }
+
+  /* ---------- Proof points ---------- */
+
+  .proof {
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+    padding: 3rem 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.25rem;
+    text-align: center;
+  }
+
+  .proof-item h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.12rem;
+    line-height: 1.4;
+    margin-bottom: 0.6rem;
+  }
+
+  .proof-item .num {
+    display: block;
+    font-family: var(--serif);
+    font-size: 0.85rem;
+    color: var(--champagne);
+    letter-spacing: 0.18em;
+    margin-bottom: 0.9rem;
+  }
+
+  .proof-item p {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    max-width: 26rem;
+    margin: 0 auto;
+  }
+
+  /* ---------- Waitlist / email capture ---------- */
+
+  .waitlist {
+    text-align: center;
+    padding: 4rem 0 3rem;
+  }
+
+  .waitlist h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.7rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .waitlist > p {
+    color: var(--ink-soft);
+    max-width: 30rem;
+    margin: 0 auto 2.25rem;
+    font-size: 0.95rem;
+  }
+
+  .signup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 30rem;
+    margin: 0 auto;
+  }
+
+  .signup-form input[type="email"] {
+    font-family: var(--sans);
+    font-size: 1rem;
+    color: var(--ink);
+    background: #FFFDF8;
+    border: 1px solid var(--hairline);
+    border-radius: 0;           /* crisp, editorial */
+    padding: 0.95rem 1.1rem;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .signup-form input[type="email"]::placeholder { color: #A79C89; }
+
+  .signup-form input[type="email"]:focus {
+    outline: none;
+    border-color: var(--champagne);
+    box-shadow: 0 0 0 1px var(--champagne);
+  }
+
+  .signup-form button {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-indent: 0.22em;
+    text-transform: uppercase;
+    color: var(--ivory);
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 0;
+    padding: 1rem 2.2rem;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease;
+    width: 100%;
+  }
+
+  .signup-form button:hover,
+  .signup-form button:focus-visible {
+    background: var(--champagne);
+    border-color: var(--champagne);
+    color: var(--ink);
+  }
+
+  /* ---------- Founding 100 perk ---------- */
+
+  .founding {
+    background: var(--ivory-deep);
+    border: 1px solid var(--hairline);
+    text-align: center;
+    padding: 2.75rem 1.75rem;
+    margin: 2.5rem 0 0;
+  }
+
+  .founding .label {
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+    text-transform: uppercase;
+    color: var(--champagne);
+    margin-bottom: 1.1rem;
+  }
+
+  .founding h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.35rem;
+    line-height: 1.45;
+    max-width: 30rem;
+    margin: 0 auto 1rem;
+  }
+
+  .founding p {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    max-width: 28rem;
+    margin: 0 auto;
+  }
+
+  /* ---------- Fine print / footer ---------- */
+
+  footer {
+    text-align: center;
+    padding: 3.5rem 1.5rem 3rem;
+  }
+
+  footer .fine-print {
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    line-height: 1.7;
+    max-width: 32rem;
+    margin: 0 auto 1.5rem;
+  }
+
+  footer .fine-print a {
+    color: var(--ink-soft);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  footer .copyright {
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-indent: 0.18em;
+    text-transform: uppercase;
+    color: #A79C89;
+  }
+
+  /* ---------- Larger screens ---------- */
+
+  @media (min-width: 720px) {
+    .page { max-width: 60rem; padding: 0 3rem; }
+    header { padding-top: 4.5rem; }
+    .hero  { padding: 6rem 0 5.5rem; }
+    .proof {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3rem;
+      padding: 3.75rem 0;
+    }
+    .waitlist { padding: 5rem 0 3.5rem; }
+    .signup-form {
+      flex-direction: row;
+      max-width: 34rem;
+    }
+    .signup-form input[type="email"] { flex: 1; }
+    .signup-form button { width: auto; flex-shrink: 0; }
+    .founding { padding: 3.25rem 3rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ================= WORDMARK =================
+       Placeholder: replace "[BRAND]" with the final brand name,
+       or swap this block for an inline SVG wordmark. -->
+  <header>
+    <div class="wordmark">[BRAND]</div>
+    <hr class="wordmark-rule">
+  </header>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <p class="eyebrow">The debut collection · Coming soon</p>
+    <h1>Real 18k gold vermeil. Real IGI&#8209;certified lab&#8209;grown diamonds. Made to order.</h1>
+    <p>Fine-jewellery quality at demi-fine prices — no shortcuts on materials, no inflated markups. [BRAND] launches soon, and the waitlist comes first.</p>
+  </section>
+
+  <!-- ================= PROOF POINTS ================= -->
+  <section class="proof" aria-label="What makes [BRAND] different">
+    <div class="proof-item">
+      <span class="num">I</span>
+      <h2>IGI-certified lab-grown diamonds</h2>
+      <p>Every lab-grown diamond is independently graded by IGI and arrives with its own certificate. Real, and proven real.</p>
+    </div>
+    <div class="proof-item">
+      <span class="num">II</span>
+      <h2>18k gold vermeil over sterling silver, 2.5&nbsp;microns+</h2>
+      <p>True vermeil on a solid sterling silver base — a substantial layer of 18k gold, not flash plating over brass.</p>
+    </div>
+    <div class="proof-item">
+      <span class="num">III</span>
+      <h2>Made to order, ships in ~7 days</h2>
+      <p>Each piece is made for you when you order it. Nothing sits in a warehouse; nothing is made to be discounted.</p>
+    </div>
+  </section>
+
+  <!-- ================= EMAIL CAPTURE ================= -->
+  <section class="waitlist">
+    <h2>Join the waitlist</h2>
+    <p>Be first to see the debut collection — and be counted among the Founding 100.</p>
+
+    <!-- ==========================================================
+         KLAVIYO EMBED FORM — PASTE SNIPPET DIRECTLY BELOW THIS COMMENT
+         1. In Klaviyo: Sign-up Forms → Create Form → choose "Embed",
+            connected to the "Waitlist" list.
+         2. Copy the generated snippet, e.g.:
+              <div class="klaviyo-form-XXXXXX"></div>
+            plus the klaviyo.js <script> tag (Klaviyo will provide it;
+            place the script tag just before </body>).
+         3. Paste the <div> here, then DELETE the fallback <form>
+            below (everything between the FALLBACK FORM markers).
+         ========================================================== -->
+
+    <!-- ===== FALLBACK FORM (preview only — remove once the
+               Klaviyo embed above is live) ===== -->
+    <form class="signup-form" action="#" method="post" aria-label="Waitlist sign-up">
+      <input type="email" name="email" placeholder="Your email address"
+             autocomplete="email" inputmode="email" required
+             aria-label="Email address">
+      <button type="submit">Request access</button>
+    </form>
+    <!-- ===== END FALLBACK FORM ===== -->
+
+    <!-- ================= FOUNDING 100 PERK ================= -->
+    <div class="founding">
+      <p class="label">Founding 100</p>
+      <h2>First access to the debut collection + complimentary [BRAND] travel case + IGI certificate presented in a keepsake folio</h2>
+      <p>Reserved for the first one hundred names on the waitlist. A thank-you with real substance — never a discount code.</p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ================= FINE PRINT ================= -->
+<footer>
+  <p class="fine-print">
+    We'll email you when the debut collection opens, and rarely otherwise —
+    no spam, ever, and you can unsubscribe in one click. Your details stay
+    with [BRAND]; we never share or sell them.
+    <a href="#">Privacy&nbsp;Policy</a> <!-- link the real policy URL before launch -->
+  </p>
+  <p class="copyright">&copy; 2026 [BRAND] · All rights reserved</p>
+</footer>
+
+<!-- KLAVIYO SCRIPT TAG: if Klaviyo's embed instructions include a
+     klaviyo.js <script src="..."> tag, paste it here, just before </body>. -->
+
+</body>
+</html>
