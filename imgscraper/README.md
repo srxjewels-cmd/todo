@@ -9,6 +9,20 @@ highest-resolution candidate), `<picture><source>` elements, Open Graph
 them concurrently. It is polite by default: it honours `robots.txt`, waits
 between requests, retries once, and never grabs files over 50 MB.
 
+## No-terminal quick start
+
+Don't want to touch a terminal? Double-click the launcher instead:
+
+1. Download this project as a zip and unzip it.
+2. Open the `imgscraper` folder.
+3. **Windows:** double-click `Get Images (Windows).bat`.
+   **Mac:** right-click `Get Images (Mac).command` → **Open** (needed the first
+   time only; after that a plain double-click works).
+
+The launcher checks that Python is installed (and walks you through getting it
+if not), sets everything up on first run, asks you for a website address and
+an optional image limit, then opens the folder with your downloaded images.
+
 ## Install
 
 Requires Python 3.9+.

@@ -815,6 +815,7 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
 
+    args.url = args.url.strip()
     url = args.url if "://" in args.url else "https://" + args.url
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
