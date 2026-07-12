@@ -147,28 +147,48 @@ JS_FIND_DETAILS = """
   }
   if (!headerEl) return null;
   const clickable = headerEl.closest('button, summary, [role="button"], [aria-expanded]') || headerEl;
-  let expanded = clickable.getAttribute('aria-expanded');
-  if (expanded === null) {
-    const holder = clickable.closest('[aria-expanded]');
-    if (holder) expanded = holder.getAttribute('aria-expanded');
-  }
-  let container = clickable.closest('details');
-  if (!container) {
-    container = clickable.parentElement || clickable;
-    let hops = 0;
-    while (hops < 3 && container.parentElement &&
-           container !== document.body && container.children.length < 2) {
-      container = container.parentElement;
-      hops++;
+  return { clickable };
+}
+"""
+
+# Assess accordion state relative to the clickable header: locate the content
+# panel (aria-controls target, else the nearest following sibling with real
+# height, walking up through wrapper levels), report whether it is visibly
+# expanded, and expose the tightest element containing both header and panel.
+JS_DETAILS_STATE = """
+(o) => {
+  const h = o.clickable;
+  const doc = h.ownerDocument;
+  const hr = h.getBoundingClientRect();
+  let panel = null;
+  const ac = h.getAttribute('aria-controls');
+  if (ac) panel = doc.getElementById(ac);
+  if (!panel || panel.getBoundingClientRect().height <= 24) {
+    let base = h;
+    for (let hops = 0; base && hops < 3 && (!panel || panel.getBoundingClientRect().height <= 24); hops++) {
+      let sib = base.nextElementSibling;
+      while (sib) {
+        const r = sib.getBoundingClientRect();
+        if (r.height > 24 && (sib.innerText || '').trim().length > 20) { panel = sib; break; }
+        sib = sib.nextElementSibling;
+      }
+      base = base.parentElement;
     }
   }
-  let panelVisible = false;
-  let sib = clickable.nextElementSibling;
-  while (sib) {
-    if (sib.offsetHeight > 10 && sib.getClientRects().length > 0) { panelVisible = true; break; }
-    sib = sib.nextElementSibling;
+  const pr = panel ? panel.getBoundingClientRect() : null;
+  const expanded = !!pr && pr.height > 24;
+  let container = null, rect = null;
+  if (expanded) {
+    container = h;
+    while (container && !(container.contains(panel) && container.contains(h))) {
+      container = container.parentElement;
+    }
+    const top = Math.min(hr.top, pr.top), left = Math.min(hr.left, pr.left);
+    const right = Math.max(hr.right, pr.right), bottom = Math.max(hr.bottom, pr.bottom);
+    rect = { x: left, y: top + window.scrollY, width: right - left, height: bottom - top };
   }
-  return { clickable, container, expanded, panelVisible };
+  return { expanded, container: container || h, rect,
+           ariaExpanded: h.getAttribute('aria-expanded') };
 }
 """
 
@@ -447,7 +467,7 @@ def download_photos(session, gallery, folder, referer, args):
         candidates = [bare]
         if original != bare:
             candidates.append(original)
-        content = None
+        content, used_url = None, None
         for cand in candidates:
             for attempt in (1, 2):
                 try:
@@ -455,7 +475,7 @@ def download_photos(session, gallery, folder, referer, args):
                     ctype = r.headers.get("Content-Type", "")
                     if r.ok and r.content and ("image" in ctype or r.content[:3] in
                                                (b"\xff\xd8\xff", b"RIF", b"\x89PN")):
-                        content = r.content
+                        content, used_url = r.content, cand
                         break
                 except requests.RequestException as exc:
                     if attempt == 2:
@@ -492,7 +512,7 @@ def download_photos(session, gallery, folder, referer, args):
                 else:
                     im = im.convert("RGB")
                 im.save(dest, "JPEG", quality=92)
-        manifest.append(f"photo_{saved}.jpg\t{size[0]}x{size[1]}\t{bare}")
+        manifest.append(f"photo_{saved}.jpg\t{size[0]}x{size[1]}\t{used_url}")
         log(f"    photo_{saved}.jpg  ({size[0]}x{size[1]}, {len(content) // 1024} KB)")
         time.sleep(random.uniform(0.3, 0.7))
     if manifest:
@@ -507,37 +527,43 @@ def capture_details(page, folder):
             log("    DETAILS section not found on page")
             return False
         clickable = handle.get_property("clickable").as_element()
-        container = handle.get_property("container").as_element()
-        expanded = handle.get_property("expanded").json_value()
-        panel_visible = handle.get_property("panelVisible").json_value()
-        if clickable is None or container is None:
+        if clickable is None:
             return False
         clickable.scroll_into_view_if_needed(timeout=8000)
         page.wait_for_timeout(300)
-        if str(expanded).lower() != "true" and not panel_visible:
+
+        state = page.evaluate_handle(JS_DETAILS_STATE, handle)
+        expanded = state.get_property("expanded").json_value()
+        # An accordion may start open, closed, or get closed by a stray first
+        # toggle - keep clicking until the panel is measurably visible.
+        clicks = 0
+        while not expanded and clicks < 3:
             clickable.click(timeout=8000)
-            # wait for the accordion animation to finish (height stabilises)
-            last_h = -1
-            for _ in range(8):
-                page.wait_for_timeout(250)
-                box = container.bounding_box()
-                if box and box["height"] == last_h:
-                    break
-                last_h = box["height"] if box else -1
-        page.wait_for_timeout(300)
-        box = container.bounding_box()
+            clicks += 1
+            page.wait_for_timeout(800)
+            state = page.evaluate_handle(JS_DETAILS_STATE, handle)
+            expanded = state.get_property("expanded").json_value()
+
         dest = str(folder / "details.png")
-        if box and 40 <= box["height"] <= 4000:
-            container.screenshot(path=dest)
-        else:
-            hb = clickable.bounding_box()
-            if not hb:
-                return False
+        if expanded:
+            container = state.get_property("container").as_element()
+            box = container.bounding_box() if container else None
+            if container and box and box["height"] <= 4500:
+                container.screenshot(path=dest)
+            else:
+                rect = state.get_property("rect").json_value()
+                clip = {"x": max(rect["x"] - 4, 0), "y": max(rect["y"] - 4, 0),
+                        "width": rect["width"] + 8, "height": min(rect["height"] + 8, 4500)}
+                page.screenshot(path=dest, clip=clip)
+            log(f"    details.png captured (expanded after {clicks} click(s))")
+            return True
+        hb = clickable.bounding_box()
+        if hb:
             clip = {"x": max(hb["x"] - 8, 0), "y": max(hb["y"] - 8, 0),
-                    "width": min(hb["width"] + 16, 1200), "height": 620}
-            page.screenshot(path=dest, clip=clip)
-        log("    details.png captured")
-        return True
+                    "width": hb["width"] + 16, "height": 620}
+            page.screenshot(path=str(folder / "details.png"), clip=clip)
+        log("    DETAILS panel never became visible; saved best-effort region only")
+        return False
     except Exception as exc:
         log(f"    DETAILS capture failed: {exc}")
         return False
