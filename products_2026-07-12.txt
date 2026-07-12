@@ -1,0 +1,38 @@
+# Quince "Lab Grown Diamond Necklaces" category - the 15 products in display order
+# as of 2026-07-12 (default "Recommended" sort).
+# Category: https://www.quince.com/women/jewelry/necklaces-all/lab-grown-diamond-necklaces
+#
+# Usage: python quince_scraper.py --products-file products_2026-07-12.txt
+# (Without this file the scraper discovers the live order itself, which is preferred.)
+#
+#  1. Yellow Gold 14K Gold Lab Grown Diamond Graduated Bar Necklace        $398.00
+#  2. White Gold 14K Gold Lab Grown Diamond Graduated Tennis Necklace 16ct $6,900.00
+#  3. Yellow Gold 14k Gold Lab Grown Diamond Solitaire Pendant 1ct         $698.00
+#  4. Yellow Gold 14K Gold Lab Grown Diamond Tennis Necklace 7ctw          From $3,700.00
+#  5. White Gold 14K Gold Lab Grown Diamond Bezel Necklace                 $498.00
+#  6. Yellow Gold 14K Gold Lab Grown Diamond Solitaire Pendant 2ct         $1,200.00
+#  7. Yellow Gold 14K Gold Lab Grown Diamond Pear Solitaire Necklace 1ctw  $698.00
+#  8. Yellow Gold 14K Gold Lab Grown Diamond Round & Pear Drop Necklace    $998.00
+#  9. Yellow Gold 14K Gold Lab Grown Diamond Graduated Tennis Necklace     $6,900.00
+# 10. Yellow Gold 14K Gold Lab Grown Diamond Bezel Necklace                $498.00
+# 11. White Gold 14k Gold Lab Grown Diamond Solitaire Pendant 1ct          $698.00
+# 12. White Gold 14K Gold Lab Grown Diamond Tennis Necklace 7ctw           From $3,700.00
+# 13. White Gold 14K Gold Lab Grown Diamond Solitaire Pendant 2ct          $1,200.00
+# 14. White Gold 14K Gold Lab Grown Diamond Round & Pear Drop Necklace     $998.00
+# 15. Yellow Gold 14K Gold LGD Bezel Set Graduated Tennis Necklace 7ctw    $4,800.00 (sold out)
+
+https://www.quince.com/women/14k-gold-lab-grown-diamond-graduated-bar-necklace---0.50ctw?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-graduated-tennis-necklace---15ctw?color=white-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-pendant---1ctw?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-tennis-necklace---7ctw?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-bezel-solitaire-necklace---0.50ct?color=white-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-pendant---2ctw?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-pear-necklace---1ctw?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-round-and-pear-drop-necklace?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-graduated-tennis-necklace---15ctw?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-bezel-solitaire-necklace---0.50ct?color=yellow-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-pendant---1ctw?color=white-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-tennis-necklace---7ctw?color=white-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-pendant---2ctw?color=white-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-round-and-pear-drop-necklace?color=white-gold
+https://www.quince.com/women/14k-gold-lab-grown-diamond-bezel-graduated-tennis-necklace---7ctw?color=yellow-gold
