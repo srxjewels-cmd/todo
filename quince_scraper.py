@@ -364,30 +364,70 @@ def extract_name_price(page):
 
 
 def collect_gallery_urls(page, args):
-    """Return ordered, deduped [(bare_url, original_url), ...] for the gallery."""
+    """Return ordered, deduped [(bare_url, original_url), ...] for the gallery.
+
+    Strict pass first: on Quince PDPs the gallery is exactly the thumbnail
+    rail (small imgs loaded with w=200-499 resize params) plus the main
+    viewer (first large img loaded at w=1000-1999). Cross-sell carousels
+    load at w=662 and are not part of the gallery even when their tiles
+    aren't wrapped in <a> tags. Falls back to a broad any-content-image
+    scan if the strict pass finds fewer than 2 images.
+    """
     items = page.evaluate(JS_COLLECT_IMAGES)
     page_url = page.url
-    ordered = {}
+
+    def absolutize(src):
+        absu = urljoin(page_url, src)
+        parts = urlsplit(absu)
+        if parts.scheme not in ("http", "https"):
+            return None, None
+        if host_matches(parts.netloc, EXCLUDE_IMAGE_HOSTS):
+            return None, None
+        if not host_matches(parts.netloc, args.image_hosts):
+            return None, None
+        path = parts.path.lower()
+        if ".svg" in path or not re.search(r"\.(jpe?g|png|webp|avif)$", path):
+            return None, None
+        return absu, strip_image_params(absu)
+
+    usable = []
     for it in items:
-        if it["inAnchor"] or it["inChrome"] or (0 < it["renderW"] < 30):
+        if it["inAnchor"] or it["inChrome"]:
             continue
+        pairs = []
         for src in it["srcs"]:
-            absu = urljoin(page_url, src)
-            parts = urlsplit(absu)
-            if parts.scheme not in ("http", "https"):
-                continue
-            if host_matches(parts.netloc, EXCLUDE_IMAGE_HOSTS):
-                continue
-            if not host_matches(parts.netloc, args.image_hosts):
-                continue
-            path = parts.path.lower()
-            if path.endswith(".svg") or ".svg" in path:
-                continue
-            if not re.search(r"\.(jpe?g|png|webp|avif)$", path):
-                continue
-            bare = strip_image_params(absu)
-            if bare not in ordered:
-                ordered[bare] = absu
+            absu, bare = absolutize(src)
+            if bare:
+                pairs.append((absu, bare))
+        if pairs:
+            usable.append({"renderW": it["renderW"], "pairs": pairs})
+
+    thumb_sig = re.compile(r"[?&]w=[234]\d\d(?!\d)")
+    main_sig = re.compile(r"[?&]w=1\d{3}(?!\d)")
+    ordered = {}
+    main_done = False
+    for u in usable:
+        is_thumb = (20 <= u["renderW"] < 180
+                    and any(thumb_sig.search(a) for a, _ in u["pairs"]))
+        is_main = (not main_done and u["renderW"] >= 300
+                   and any(main_sig.search(a) for a, _ in u["pairs"]))
+        if not (is_thumb or is_main):
+            continue
+        if is_main:
+            main_done = True
+        absu, bare = u["pairs"][0]
+        ordered.setdefault(bare, absu)
+    if len(ordered) >= 2:
+        return list(ordered.items())
+    if ordered:
+        log("    strict gallery detection found <2 images, using broad scan")
+
+    ordered = {}
+    for u in usable:
+        if 0 < u["renderW"] < 30:
+            continue
+        for absu, bare in u["pairs"]:
+            ordered.setdefault(bare, absu)
     if not ordered:
         # Fallback: any page-embedded JSON (Next.js data) mentioning the CDN.
         html = page.content()
@@ -402,7 +442,7 @@ def collect_gallery_urls(page, args):
 
 
 def download_photos(session, gallery, folder, referer, args):
-    saved, hashes = 0, set()
+    saved, hashes, manifest = 0, set(), []
     for bare, original in gallery:
         candidates = [bare]
         if original != bare:
@@ -452,8 +492,11 @@ def download_photos(session, gallery, folder, referer, args):
                 else:
                     im = im.convert("RGB")
                 im.save(dest, "JPEG", quality=92)
+        manifest.append(f"photo_{saved}.jpg\t{size[0]}x{size[1]}\t{bare}")
         log(f"    photo_{saved}.jpg  ({size[0]}x{size[1]}, {len(content) // 1024} KB)")
         time.sleep(random.uniform(0.3, 0.7))
+    if manifest:
+        (folder / "photo_urls.txt").write_text("\n".join(manifest) + "\n", encoding="utf-8")
     return saved
 
 
