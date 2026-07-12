@@ -1,0 +1,2 @@
+photo_1.jpg	2400x3000	https://images.quince.com/6wze14pgC8OrWvA6wKJthm/854d27cdf348d2036ce7fdaa0cf542b2/NECK-157-0539_CROPPED_WG.jpg
+photo_2.jpg	2400x3000	https://images.quince.com/hCPLJBSpw5XmG2kYhGecM/01251d6d4e80ac34cea31f095da5ac8e/NECK-157-Back-0563_CROPPED_WG.jpg

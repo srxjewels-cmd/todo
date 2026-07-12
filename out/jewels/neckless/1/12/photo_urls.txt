@@ -1,0 +1,4 @@
+photo_1.jpg	2033x2541	https://images.quince.com/6GTIhYFA5JZhnEhNnaLcos/c12f64b45a1fb4d0ec9c07ec9a947812/NECK-103-716_EDITED_WG.jpg
+photo_2.jpg	2323x2904	https://images.quince.com/2Rl5FzC60odr7BE38KjjfB/0500d7c3f5e4adb99228944d32c64801/NECK-103-717_EDITED_WG.jpg
+photo_3.jpg	2400x3000	https://images.quince.com/5QI5auRru9vDRvwWkDN5Yf/f580c413a999c8ce8c4657080b40ee3f/NECK-103-738_EDITED_WG.jpg
+photo_4.jpg	1080x1350	https://images.quince.com/4vnNwTcth47gc0KhCryLRz/bdb77d711dfe5e559a8118f6501ca6ca/14k-gold-lab-grown-diamond-solitaire-necklace-2ctw-yellow-gold-4x5.png

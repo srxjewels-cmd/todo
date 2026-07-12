@@ -1,0 +1,19 @@
+ #  Product                                                     Price  Photos  Details  Status
+----------------------------------------------------------------------------------------------------
+ 1  14K Gold Lab Grown Diamond Graduated Bar Necklace...      $398.00       4      yes  OK
+ 2  14K Gold Lab Grown Diamond Graduated Tennis Neckl...    $6,900.00       4      yes  OK
+ 3  14K Gold Lab Grown Diamond Tennis Necklace in Whi...    $3,700.00       2      yes  OK
+ 4  14K Gold Lab Grown Diamond Bezel Necklace in Yell...      $498.00       5      yes  OK
+ 5  14K Gold Lab Grown Diamond Solitaire Necklace in ...      $698.00       3      yes  OK
+ 6  14K Gold Lab Grown Diamond Solitaire Necklace in ...    $1,200.00       6      yes  OK
+ 7  14K Gold Lab Grown Diamond Pear Necklace - 1ctw i...      $698.00       7      yes  OK
+ 8  14K Gold Lab Grown Diamond Round & Pear Drop Neck...      $998.00       4      yes  OK
+ 9  14K Gold Lab Grown Diamond Graduated Tennis Neckl...    $6,900.00       6      yes  OK
+10  14K Gold Lab Grown Diamond Tennis Necklace in Yel...    $3,700.00       6      yes  OK
+11  14K Gold Lab Grown Diamond Solitaire Necklace in ...      $698.00       6      yes  OK
+12  14K Gold Lab Grown Diamond Solitaire Necklace in ...    $1,200.00       4      yes  OK
+13  14K Gold Lab Grown Diamond Pear Necklace - 1ctw i...      $698.00       6      yes  OK
+14  14K Gold Lab Grown Diamond Round & Pear Drop Neck...      $998.00       2      yes  OK
+15  14K Gold Lab Grown Diamond Bezel Graduated Tennis...    $4,800.00       6      yes  OK
+----------------------------------------------------------------------------------------------------
+Done: 15/15 products scraped, 71 photos total, 15 details screenshots.
