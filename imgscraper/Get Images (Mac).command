@@ -9,6 +9,13 @@ echo
 
 pause_exit() { echo; read -n 1 -s -r -p "Press any key to close..."; echo; exit "${1:-1}"; }
 
+if [ ! -f imgscraper.py ]; then
+    echo "I can't find the tool's files next to me. If you're running this from"
+    echo "inside the zip, extract the zip first, open the imgscraper folder,"
+    echo "then double-click me again."
+    pause_exit 1
+fi
+
 # macOS ships a python3 stub; running it pops up the tools installer if needed.
 if ! python3 --version >/dev/null 2>&1; then
     echo "macOS is asking to install its command-line tools (they include Python)."

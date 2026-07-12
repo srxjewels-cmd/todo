@@ -1,0 +1,69 @@
+name: Grab images from a website
+
+# Runs whenever imgscraper/scrape-request.txt changes on this branch.
+# Reads the website address from that file, downloads its images, and
+# publishes them as a workflow artifact AND to the "scraped-images" branch
+# (so they can be downloaded as a plain zip:
+#  https://github.com/srxjewels-cmd/todo/archive/refs/heads/scraped-images.zip)
+
+on:
+  push:
+    branches: ["claude/imgscraper-cli-tool-khvebg"]
+    paths: ["imgscraper/scrape-request.txt"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape-images
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requirements
+        run: python -m pip install -q -r imgscraper/requirements.txt
+
+      - name: Read the request file
+        id: req
+        run: |
+          URL=$(sed -n 's/^url=//p' imgscraper/scrape-request.txt | head -1 | tr -d '\r')
+          MAXN=$(sed -n 's/^max=//p' imgscraper/scrape-request.txt | head -1 | tr -d '\r')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "max=$MAXN" >> "$GITHUB_OUTPUT"
+
+      - name: Run imgscraper
+        env:
+          URL: ${{ steps.req.outputs.url }}
+          MAXN: ${{ steps.req.outputs.max }}
+        run: |
+          cd imgscraper
+          set --
+          if [ -n "$MAXN" ]; then set -- --max-images "$MAXN"; fi
+          python imgscraper.py "$URL" -o downloaded "$@"
+
+      - name: Upload images as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: images
+          path: imgscraper/downloaded
+
+      - name: Publish images to the scraped-images branch
+        env:
+          URL: ${{ steps.req.outputs.url }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan scraped-images
+          git rm -q -rf --cached .
+          git add -f imgscraper/downloaded
+          git commit -m "Images scraped from $URL"
+          git push -f origin scraped-images

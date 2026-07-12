@@ -8,6 +8,17 @@ echo   Image Grabber
 echo ============================================
 echo.
 
+rem ---- common mistake: running straight from inside the zip ----
+if not exist imgscraper.py (
+    echo It looks like this launcher is running from INSIDE the zip file.
+    echo.
+    echo Right-click the downloaded zip and choose "Extract All", open the
+    echo extracted imgscraper folder, then double-click me again.
+    echo.
+    pause
+    exit /b 1
+)
+
 rem ---- find Python: the "py" launcher first, then "python" ----
 set "PY="
 py -3 --version >nul 2>&1 && set "PY=py -3"
