@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Quince product scraper: gallery photos + DETAILS screenshots.
+"""Catalog scraper: product gallery photos + DETAILS screenshots from any
+category/listing URL. Tuned for quince.com with generic fallbacks for other
+standard e-commerce sites.
 
-Scrapes the first N products (default 15) from a Quince category page:
+Scrapes the first N products (default 15) from a category page:
   * downloads every gallery photo at the highest available resolution
     (srcset / lazy-load aware; CDN size params stripped),
   * deduplicates photos by content hash,
@@ -21,10 +23,15 @@ Defaults:
 Usage:
     pip install playwright requests pillow
     playwright install chromium
-    python quince_scraper.py                      # scrape default category
-    python quince_scraper.py --headless
-    python quince_scraper.py --out "D:/jewels/neckless/1" --limit 15
-    python quince_scraper.py --products-file products.txt   # skip discovery
+    python catalog_scraper.py                     # scrape default category
+    python catalog_scraper.py --category-url https://example.com/collections/rings
+    python catalog_scraper.py --out "D:/jewels/rings/1" --limit 10
+    python catalog_scraper.py --products-file products.txt   # skip discovery
+
+If the URL is a single product page rather than a listing, it is scraped as
+product 1. Detection ladder per page: site-tuned rules first, then generic
+structural heuristics (price cards for tiles; thumbnail clusters plus the
+largest image for galleries; JSON-LD for name/price).
 
 Be polite: keeps a 2-3 s delay between page loads, one retry per failure,
 and continues with the remaining products if one fails.
@@ -55,9 +62,12 @@ from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 DEFAULT_CATEGORY = "https://www.quince.com/women/jewelry/necklaces-all/lab-grown-diamond-necklaces"
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
-IMAGE_HOSTS = ["images.quince.com"]          # gallery CDN(s); override with --image-host
 EXCLUDE_IMAGE_HOSTS = ["review-images.onequince.com"]  # customer review photos
-MIN_PHOTO_SIDE = 350                         # skip icons/swatches smaller than this
+DEFAULT_DETAILS_LABELS = ["details", "product details", "description",
+                          "specifications", "product information"]
+NON_PRODUCT_PATHS = re.compile(
+    r"/(cart|checkout|log-?in|sign-?in|register|account|wishlist|search|faq|"
+    r"about|privacy|terms|contact|refer|gift-card|blog|help)", re.I)
 NAV_TIMEOUT_MS = 60_000
 
 # ---------------------------------------------------------------- JS snippets
@@ -117,6 +127,7 @@ JS_COLLECT_IMAGES = """
       idx,
       srcs: srcs.filter(Boolean),
       renderW: r.width,
+      renderH: r.height,
       inAnchor: !!img.closest('a'),
       inChrome: !!img.closest('header, footer, nav, [role="dialog"]'),
       alt: img.getAttribute('alt') || '',
@@ -127,23 +138,26 @@ JS_COLLECT_IMAGES = """
 """
 
 JS_FIND_DETAILS = """
-() => {
+(labels) => {
   const norm = s => (s || '').replace(/\\s+/g, ' ').trim().toLowerCase();
   const h1 = document.querySelector('h1');
-  let headerEl = null;
   const nodes = document.querySelectorAll(
     'button, summary, [role="button"], h2, h3, h4, div, span, p');
-  for (const el of nodes) {
-    let own = '';
-    for (const n of el.childNodes) if (n.nodeType === Node.TEXT_NODE) own += n.textContent;
-    let txt = norm(own);
-    if (!txt && el.children.length === 0) txt = norm(el.textContent);
-    if (txt !== 'details' && txt !== 'product details') continue;
-    const r = el.getBoundingClientRect();
-    if (r.width < 2 && r.height < 2) continue;
-    if (h1 && !(h1.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
-    headerEl = el;
-    break;
+  let headerEl = null;
+  for (const want of labels) {
+    for (const el of nodes) {
+      let own = '';
+      for (const n of el.childNodes) if (n.nodeType === Node.TEXT_NODE) own += n.textContent;
+      let txt = norm(own);
+      if (!txt && el.children.length === 0) txt = norm(el.textContent);
+      if (txt !== want) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 && r.height < 2) continue;
+      if (h1 && !(h1.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      headerEl = el;
+      break;
+    }
+    if (headerEl) break;
   }
   if (!headerEl) return null;
   const clickable = headerEl.closest('button, summary, [role="button"], [aria-expanded]') || headerEl;
@@ -204,9 +218,13 @@ def polite_sleep(args):
 
 
 def strip_image_params(url):
-    """Drop the query string (w/h/q CDN resize params) to get the original file."""
+    """Undo CDN/theme resizing to reach the original file: drop the query
+    string (imgix/Contentful-style w=/h=/q= params) and size-suffixed
+    filenames (Shopify photo_600x.jpg, WordPress photo-300x300.jpg, @2x).
+    Downloads fall back to the original URL if the stripped one fails."""
     parts = urlsplit(url)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    path = re.sub(r"(_\d{2,4}x\d{0,4}|-\d{2,4}x\d{2,4}|@2x)(?=\.\w+$)", "", parts.path)
+    return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
 def canonical_product_key(url):
@@ -277,12 +295,16 @@ def discover_products(page, args, out_root):
     dismiss_overlays(page)
 
     try:
-        page.wait_for_selector("a[href*='color=']", timeout=20_000)
+        page.wait_for_selector("a[href*='color=']", timeout=6_000)
     except PWTimeout:
-        log("  warning: no product-looking links appeared after 20s, continuing anyway")
+        try:
+            page.wait_for_selector("a[href] img", timeout=10_000)
+        except PWTimeout:
+            log("  warning: no product-looking links appeared, continuing anyway")
 
     cat_path = urlsplit(args.category_url).path.rstrip("/")
-    seen, ordered = set(), []
+    seen, ordered = set(), []            # strict (Quince-style) tile links
+    gen_seen, gen_ordered = set(), []    # generic price-card tile links
 
     def harvest():
         data = page.evaluate(JS_COLLECT_ANCHORS)
@@ -291,15 +313,20 @@ def discover_products(page, args, out_root):
                 continue                      # recommendation carousels
             if it["path"].rstrip("/") == cat_path:
                 continue                      # subcollection tiles / self links
-            is_product = ("color=" in it["search"] and (it["inHeading"] or it["hasImg"])
-                          and it["cardHasPrice"])
-            if not is_product and not (it["inHeading"] and it["cardHasPrice"] and args.loose_discovery):
+            if NON_PRODUCT_PATHS.search(it["path"]) or not it["path"].strip("/"):
+                continue
+            candidate_card = (it["inHeading"] or it["hasImg"]) and it["cardHasPrice"]
+            if not candidate_card:
                 continue
             key = canonical_product_key(it["href"])
-            if key in seen:
-                continue
-            seen.add(key)
-            ordered.append({"url": clean_product_url(it["href"]), "tile_text": it["text"]})
+            entry = {"url": clean_product_url(it["href"]), "tile_text": it["text"]}
+            if "color=" in it["search"] and not args.loose_discovery:
+                if key not in seen:
+                    seen.add(key)
+                    ordered.append(entry)
+            if key not in gen_seen:
+                gen_seen.add(key)
+                gen_ordered.append(entry)
         return data
 
     # Scroll to the bottom in steps to trigger lazy loading, harvesting as we go.
@@ -326,6 +353,14 @@ def discover_products(page, args, out_root):
     m = re.search(r"(\d+)\s+items", data.get("bodyText", ""), re.I)
     if m:
         log(f"  category reports {m.group(1)} items")
+
+    if len(ordered) < args.limit and gen_ordered:
+        known = {canonical_product_key(p["url"]) for p in ordered}
+        extra = [p for p in gen_ordered if canonical_product_key(p["url"]) not in known]
+        if extra:
+            log(f"  strict tile rule found {len(ordered)}; adding "
+                f"{len(extra)} generic price-card links")
+            ordered.extend(extra)
 
     debug_path = out_root / "_category_debug.json"
     debug_path.write_text(json.dumps({"discovered": ordered, "all_anchors": data["items"]},
@@ -375,9 +410,9 @@ def extract_name_price(page):
             body = page.inner_text("body", timeout=5000)
             h1_pos = body.find(name) if name else -1
             tail = body[h1_pos:] if h1_pos >= 0 else body
-            m = re.search(r"(From\s*[\r\n ]*)?\$\s?([\d,]+(?:\.\d{2})?)", tail)
+            m = re.search(r"(From\s*[\r\n ]*)?([$€£₹]\s?[\d][\d,.]*)", tail)
             if m:
-                price = ("From " if m.group(1) else "") + "$" + m.group(2)
+                price = ("From " if m.group(1) else "") + m.group(2).strip()
         except Exception:
             pass
     return name, price
@@ -403,7 +438,7 @@ def collect_gallery_urls(page, args):
             return None, None
         if host_matches(parts.netloc, EXCLUDE_IMAGE_HOSTS):
             return None, None
-        if not host_matches(parts.netloc, args.image_hosts):
+        if args.image_hosts and not host_matches(parts.netloc, args.image_hosts):
             return None, None
         path = parts.path.lower()
         if ".svg" in path or not re.search(r"\.(jpe?g|png|webp|avif)$", path):
@@ -420,7 +455,8 @@ def collect_gallery_urls(page, args):
             if bare:
                 pairs.append((absu, bare))
         if pairs:
-            usable.append({"renderW": it["renderW"], "pairs": pairs})
+            usable.append({"renderW": it["renderW"], "renderH": it.get("renderH", 0),
+                           "pairs": pairs})
 
     thumb_sig = re.compile(r"[?&]w=[234]\d\d(?!\d)")
     main_sig = re.compile(r"[?&]w=1\d{3}(?!\d)")
@@ -439,8 +475,32 @@ def collect_gallery_urls(page, args):
         ordered.setdefault(bare, absu)
     if len(ordered) >= 2:
         return list(ordered.items())
-    if ordered:
-        log("    strict gallery detection found <2 images, using broad scan")
+
+    # Structural pass (site-agnostic): the gallery = the largest run of
+    # small same-area images close together in the DOM (the thumbnail rail)
+    # plus the largest rendered image on the page (the main viewer).
+    smalls = [(i, u) for i, u in enumerate(usable) if 20 <= u["renderW"] <= 200]
+    best_run, run = [], []
+    for i, u in smalls:
+        if run and i - run[-1][0] > 8:
+            if len(run) > len(best_run):
+                best_run = run
+            run = []
+        run.append((i, u))
+    if len(run) > len(best_run):
+        best_run = run
+    structural = {}
+    main_img = max(usable, key=lambda u: u["renderW"] * u["renderH"], default=None)
+    if main_img and main_img["renderW"] >= 300:
+        absu, bare = main_img["pairs"][0]
+        structural[bare] = absu
+    if len(best_run) >= 3:
+        for _, u in best_run:
+            absu, bare = u["pairs"][0]
+            structural.setdefault(bare, absu)
+    if len(structural) >= 2:
+        log("    gallery via structural detection (thumbnail cluster + main image)")
+        return list(structural.items())
 
     ordered = {}
     for u in usable:
@@ -454,10 +514,12 @@ def collect_gallery_urls(page, args):
         for m in re.finditer(r"https?://[^\s\"'\\]+\.(?:jpe?g|png|webp)[^\s\"'\\]*", html):
             u = m.group(0)
             parts = urlsplit(u)
-            if host_matches(parts.netloc, args.image_hosts) and \
-               not host_matches(parts.netloc, EXCLUDE_IMAGE_HOSTS):
-                bare = strip_image_params(u)
-                ordered.setdefault(bare, u)
+            if host_matches(parts.netloc, EXCLUDE_IMAGE_HOSTS):
+                continue
+            if args.image_hosts and not host_matches(parts.netloc, args.image_hosts):
+                continue
+            bare = strip_image_params(u)
+            ordered.setdefault(bare, u)
     return list(ordered.items())
 
 
@@ -496,7 +558,7 @@ def download_photos(session, gallery, folder, referer, args):
                     fmt, size = im.format, im.size
             except Exception:
                 continue
-            if min(size) < MIN_PHOTO_SIDE:
+            if min(size) < args.min_photo_side:
                 continue          # icon / swatch, not a product photo
         hashes.add(digest)
         saved += 1
@@ -520,11 +582,11 @@ def download_photos(session, gallery, folder, referer, args):
     return saved
 
 
-def capture_details(page, folder):
-    handle = page.evaluate_handle(JS_FIND_DETAILS)
+def capture_details(page, folder, labels):
+    handle = page.evaluate_handle(JS_FIND_DETAILS, labels)
     try:
         if not handle or handle.evaluate("v => v === null"):
-            log("    DETAILS section not found on page")
+            log(f"    no section matching {labels} found on page")
             return False
         clickable = handle.get_property("clickable").as_element()
         if clickable is None:
@@ -601,7 +663,7 @@ def scrape_product(page, session, product, folder, args):
     photos = download_photos(session, gallery, folder, url, args)
 
     dismiss_overlays(page)
-    details_ok = capture_details(page, folder)
+    details_ok = capture_details(page, folder, args.details_labels)
 
     (folder / "info.txt").write_text(
         f"Product name: {name}\n"
@@ -649,6 +711,9 @@ def run(args):
             log(f"Loaded {len(products)} product URLs from {args.products_file}")
         else:
             products = discover_products(page, args, out_root)
+            if not products:
+                log("No product tiles found; treating the URL as a single product page")
+                products = [{"url": args.category_url, "tile_text": ""}]
             log(f"Discovered {len(products)} product URLs (in page order):")
             for i, pr in enumerate(products, 1):
                 log(f"  {i:2d}. {pr['url']}")
@@ -719,18 +784,25 @@ def parse_args(argv=None):
     ap.add_argument("--min-delay", type=float, default=2.0)
     ap.add_argument("--max-delay", type=float, default=3.0)
     ap.add_argument("--image-host", dest="image_hosts", action="append",
-                    help="allowed gallery image host substring "
-                         "(repeatable; default images.quince.com)")
+                    help="restrict gallery images to hosts containing this "
+                         "substring (repeatable; default: auto-detect)")
+    ap.add_argument("--details-label", dest="details_labels", action="append",
+                    help="section header text to screenshot (repeatable; "
+                         f"default: {', '.join(DEFAULT_DETAILS_LABELS)})")
+    ap.add_argument("--min-photo-side", type=int, default=350,
+                    help="skip images smaller than this on either side (default 350)")
     ap.add_argument("--loose-discovery", action="store_true",
-                    help="relax product-link detection if the strict rule finds too few")
+                    help="skip the site-tuned tile rule and use only the "
+                         "generic price-card rule")
     ap.add_argument("--no-proxy-env", action="store_true",
                     help="ignore HTTPS_PROXY from the environment")
     ap.add_argument("--chromium-path",
                     help="use a specific Chromium/Chrome executable instead of "
                          "Playwright's downloaded browser")
     args = ap.parse_args(argv)
-    if not args.image_hosts:
-        args.image_hosts = list(IMAGE_HOSTS)
+    if not args.details_labels:
+        args.details_labels = list(DEFAULT_DETAILS_LABELS)
+    args.details_labels = [s.strip().lower() for s in args.details_labels]
     return args
 
 

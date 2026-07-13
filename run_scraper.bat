@@ -13,7 +13,8 @@ python -m pip install --quiet playwright requests pillow
 python -m playwright install chromium
 echo.
 echo Starting scraper - a Chrome window will open so you can watch.
-echo Output goes to D:\jewels\neckless\1
+echo Default: Quince lab-grown diamond necklaces to D:\jewels\neckless\1
+echo For another site: run_scraper.bat --category-url URL --out D:\jewels\NAME\1 --limit N
 echo.
-python quince_scraper.py
+python catalog_scraper.py %*
 pause

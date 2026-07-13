@@ -142,6 +142,74 @@ P2 = """<!doctype html>
 """
 
 
+CATEGORY_G = """<!doctype html>
+<html><head><title>Generic Shop - Rings</title></head>
+<body>
+<header><nav><a href="/category_g.html">Rings</a> <a href="/about.html">About</a></nav></header>
+<h1>Rings</h1>
+<main>
+ <div class="card">
+   <a href="/g1.html"><img src="/assets/gp1_a.jpg" width="280"></a>
+   <h3><a href="/g1.html">Generic Solitaire Ring</a></h3>
+   <span class="price">$129.00</span>
+ </div>
+ <div class="card">
+   <a href="/g2.html"><img src="/assets/gp2_a_200x.jpg" width="280"></a>
+   <h3><a href="/g2.html">Shopify-style Band Ring</a></h3>
+   <span class="price">$89.00</span>
+ </div>
+</main>
+<footer><a href="/faq.html">FAQ</a></footer>
+</body></html>
+"""
+
+G1 = """<!doctype html>
+<html><head><title>Generic Solitaire Ring</title>
+<style>.thumbs img{width:64px;display:block;margin:4px}.main img{width:540px}
+details{width:500px;border-top:1px solid #888;padding:6px}</style>
+</head><body>
+<header><nav><a href="/category_g.html">Back</a></nav></header>
+<h1>Generic Solitaire Ring</h1>
+<div>$129.00</div>
+<div class="pdp">
+ <div class="thumbs">
+  <img src="/assets/gp1_a.jpg">
+  <img src="/assets/gp1_b.jpg">
+  <img src="/assets/gp1_c.jpg">
+ </div>
+ <div class="main"><img src="/assets/gp1_a.jpg"></div>
+</div>
+<details>
+  <summary>Details</summary>
+  <ul><li>925 sterling silver</li><li>1ct round stone</li><li>Sizes 5-9</li></ul>
+</details>
+</body></html>
+"""
+
+G2 = """<!doctype html>
+<html><head><title>Shopify-style Band Ring</title>
+<style>.thumbs img{width:64px;display:block;margin:4px}.main img{width:540px}
+.desc{width:500px;border-top:1px solid #888;padding:6px}</style>
+</head><body>
+<header><nav><a href="/category_g.html">Back</a></nav></header>
+<h1>Shopify-style Band Ring</h1>
+<div>$89.00</div>
+<div class="pdp">
+ <div class="thumbs">
+  <img src="/assets/gp2_a_200x.jpg">
+  <img src="/assets/gp2_b_200x.jpg">
+ </div>
+ <div class="main"><img src="/assets/gp2_a_800x.jpg"></div>
+</div>
+<div class="desc">
+  <div class="desc-h">DESCRIPTION</div>
+  <div class="desc-p"><ul><li>14k gold vermeil band</li><li>3mm width</li>
+  <li>Hypoallergenic</li></ul></div>
+</div>
+</body></html>
+"""
+
+
 def make_img(path, label, size=(1200, 1500), color=(210, 190, 160)):
     im = Image.new("RGB", size, color)
     if min(size) >= 400:
@@ -165,10 +233,23 @@ def build(root: Path):
     make_img(assets / "p2_c.jpg", "P2 view C", color=(214, 202, 222))
     make_img(assets / "icon.jpg", "icon", size=(120, 120))
     make_img(assets / "pixel.jpg", "", size=(1, 1))
+    # Generic site: full-size originals plus Shopify-style resized copies
+    # (real small files, so a failed suffix-strip shows up as tiny photos).
+    make_img(assets / "gp1_a.jpg", "G1 ring view A", color=(200, 200, 220))
+    make_img(assets / "gp1_b.jpg", "G1 ring view B", color=(220, 200, 200))
+    make_img(assets / "gp1_c.jpg", "G1 ring view C", color=(200, 220, 200))
+    make_img(assets / "gp2_a.jpg", "G2 band view A", color=(230, 210, 190))
+    make_img(assets / "gp2_b.jpg", "G2 band view B", color=(190, 210, 230))
+    for stem in ("gp2_a", "gp2_b"):
+        make_img(assets / f"{stem}_200x.jpg", "", size=(200, 250))
+    make_img(assets / "gp2_a_800x.jpg", "", size=(800, 1000))
     (root / "category.html").write_text(CATEGORY, encoding="utf-8")
     (root / "p1.html").write_text(P1, encoding="utf-8")
     (root / "p2.html").write_text(P2, encoding="utf-8")
     # p3.html intentionally missing -> 404 -> exercises the failure path
+    (root / "category_g.html").write_text(CATEGORY_G, encoding="utf-8")
+    (root / "g1.html").write_text(G1, encoding="utf-8")
+    (root / "g2.html").write_text(G2, encoding="utf-8")
 
 
 def main():

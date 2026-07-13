@@ -1,0 +1,121 @@
+name: Catalog scrape
+
+# Runs catalog_scraper.py against any category/listing URL on a GitHub-hosted
+# runner (which has normal internet access, unlike the restricted Claude Code
+# cloud sandbox). Output is uploaded as an artifact and force-pushed to a
+# results branch, packaged into direct-download zips (split into parts when
+# needed to stay under GitHub's 100 MB per-file limit).
+#
+# Run it from the Actions tab ("Run workflow") or ask Claude to dispatch it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      category_url:
+        description: 'Category/listing or product page URL'
+        required: true
+        default: 'https://www.quince.com/women/jewelry/necklaces-all/lab-grown-diamond-necklaces'
+      limit:
+        description: 'Number of products to scrape'
+        required: false
+        default: '15'
+      dest:
+        description: 'Folder structure inside the output/zips'
+        required: false
+        default: 'jewels/neckless/1'
+      results_branch:
+        description: 'Branch to publish results to'
+        required: false
+        default: 'claude/scrape-results'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalog-scrape-${{ inputs.results_branch }}
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      URL: ${{ inputs.category_url }}
+      LIMIT: ${{ inputs.limit }}
+      DEST: ${{ inputs.dest }}
+      RBRANCH: ${{ inputs.results_branch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet playwright requests pillow
+          python -m playwright install --with-deps chromium
+
+      - name: Run scraper
+        run: python catalog_scraper.py --headless --category-url "$URL" --limit "$LIMIT" --out "out/$DEST" 2>&1 | tee run.log
+
+      - name: Package zips
+        if: always()
+        run: |
+          python - <<'EOF'
+          import os, subprocess, sys
+          dest = os.environ["DEST"].strip("/")
+          base = os.path.join("out", dest)
+          os.makedirs("zips", exist_ok=True)
+          if not os.path.isdir(base):
+              sys.exit(0)
+          folders = sorted((d for d in os.listdir(base) if d.isdigit()), key=int)
+          if not folders:
+              sys.exit(0)
+          def folder_size(f):
+              return sum(os.path.getsize(os.path.join(r, x))
+                         for r, _, fs in os.walk(os.path.join(base, f)) for x in fs)
+          sizes = {f: folder_size(f) for f in folders}
+          LIMIT = 85 * 1024 * 1024
+          zips_dir = os.path.abspath("zips")
+          def zipit(name, fs):
+              subprocess.check_call(
+                  ["zip", "-rq", os.path.join(zips_dir, name)]
+                  + [os.path.join(dest, f) for f in fs], cwd="out")
+          if sum(sizes.values()) <= LIMIT:
+              zipit("photos_all.zip", folders)
+          else:
+              part, size = [], 0
+              for f in folders:
+                  if part and size + sizes[f] > LIMIT:
+                      zipit(f"photos_{part[0]}-{part[-1]}.zip", part)
+                      part, size = [], 0
+                  part.append(f); size += sizes[f]
+              if part:
+                  zipit(f"photos_{part[0]}-{part[-1]}.zip", part)
+          print("zips:", os.listdir("zips"))
+          EOF
+
+      - name: Upload output as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-scrape-output
+          path: |
+            out/
+            zips/
+            run.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Push results branch
+        if: always()
+        run: |
+          mkdir -p out zips
+          touch -a run.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan "$RBRANCH"
+          git add -f out zips run.log
+          git commit -m "Scrape results: $URL ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+          git push -f origin "$RBRANCH"
