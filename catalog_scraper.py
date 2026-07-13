@@ -861,8 +861,9 @@ def capture_details(page, folder, labels):
 
         if expanded and container is not None:
             try:
+                page.bring_to_front()          # focus tab (helps if minimised)
                 container.scroll_into_view_if_needed(timeout=5000)
-                page.wait_for_timeout(200)
+                page.wait_for_timeout(250)
             except Exception:
                 pass
             container.screenshot(path=str(folder / "details.png"))  # scroll-safe
@@ -948,9 +949,18 @@ def run(args):
 
     with sync_playwright() as p:
         # Anti-bot: drop the automation launch flags Chromium normally exposes.
+        # Anti-throttle: keep the page rendering when the window is minimised or
+        # in the background, otherwise element screenshots (details.png) capture
+        # a blank/stale frame because Windows tells Chrome the tab is hidden.
         launch_kwargs = {
             "headless": not args.headed,
-            "args": ["--disable-blink-features=AutomationControlled"],
+            "args": [
+                "--disable-blink-features=AutomationControlled",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-background-timer-throttling",
+                "--disable-features=CalculateNativeWinOcclusion",
+            ],
             "ignore_default_args": ["--enable-automation"],
         }
         if args.chromium_path:
