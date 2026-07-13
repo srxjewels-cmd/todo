@@ -1,0 +1,5 @@
+photo_1.jpg	1080x1350	https://www.gorjana.com/cdn/shop/files/244-110-G_1_f2986054-d362-4a5f-b864-e023d075c016.jpg
+photo_2.jpg	1080x1350	https://www.gorjana.com/cdn/shop/files/APR24_MOD_244-110-G_03_7c368e99-fc44-4882-b951-ebeae7f46499.jpg
+photo_3.jpg	1080x1350	https://www.gorjana.com/cdn/shop/files/264-113-185-G_4_514dce47-9954-4b2b-820b-048cdce6a047.jpg
+photo_4.jpg	1080x1350	https://www.gorjana.com/cdn/shop/files/preview_images/eed4bed16c214b80824d6688eb41567e.thumbnail.0000000000.jpg
+photo_5.jpg	1080x1350	https://www.gorjana.com/cdn/shop/files/244-110-G_2_cf57ac9e-33a6-4638-bce5-a4247a521c71.jpg

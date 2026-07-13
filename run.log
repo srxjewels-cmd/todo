@@ -1,0 +1,58 @@
+Output root: /home/runner/work/todo/todo/out/jewels/test/1
+Opening category page: https://www.gorjana.com/collections/necklaces
+  warning: no product-looking links appeared, continuing anyway
+  strict tile rule found 0; adding 59 generic price-card links
+Discovered 4 product URLs (in page order):
+   1. https://www.gorjana.com/collections/top-gifts
+   2. https://www.gorjana.com/collections/personalized-gifts
+   3. https://www.gorjana.com/products/wilder-mini-alphabet-necklace
+   4. https://www.gorjana.com/products/14k-gold-basic-chain
+
+[1/4] https://www.gorjana.com/collections/top-gifts
+    name : Gifts They'll Love
+    price: $150
+    gallery images found: 4
+    photo_1.jpg  (2800x445, 117 KB)
+    photo_2.jpg  (750x547, 51 KB)
+    photo_3.jpg  (1200x628, 144 KB)
+    no section matching ['details', 'product details', 'description', 'specifications', 'product information'] found on page
+
+[2/4] https://www.gorjana.com/collections/personalized-gifts
+    name : Gifts They'll Love
+    price: $150
+    gallery images found: 4
+    photo_1.jpg  (2800x445, 117 KB)
+    photo_2.jpg  (750x547, 51 KB)
+    photo_3.jpg  (1200x628, 144 KB)
+    no section matching ['details', 'product details', 'description', 'specifications', 'product information'] found on page
+
+[3/4] https://www.gorjana.com/products/wilder-mini-alphabet-necklace
+    product page: anti-bot check detected (HTTP 429); waiting for it to clear (1/3)...
+    product page: anti-bot check detected (HTTP 429); waiting for it to clear (2/3)...
+    product page: anti-bot check detected (HTTP 429); waiting for it to clear (3/3)...
+    still behind an anti-bot page; results for this product may be empty
+    name : Your connection needs to be verified before you can proceed
+    price: (not found)
+    gallery images found: 0
+    no section matching ['details', 'product details', 'description', 'specifications', 'product information'] found on page
+
+[4/4] https://www.gorjana.com/products/14k-gold-basic-chain
+    name : 14K Gold Basic Chain
+    price: $220.00
+    gallery via structural detection (thumbnail cluster + main image)
+    gallery images found: 5
+    photo_1.jpg  (1080x1350, 44 KB)
+    photo_2.jpg  (1080x1350, 249 KB)
+    photo_3.jpg  (1080x1350, 251 KB)
+    photo_4.jpg  (1080x1350, 134 KB)
+    photo_5.jpg  (1080x1350, 48 KB)
+    details.png captured (expanded after 1 click(s))
+
+ #  Product                                                     Price  Photos  Details  Status
+----------------------------------------------------------------------------------------------------
+ 1  Gifts They'll Love                                           $150       3       NO  PARTIAL
+ 2  Gifts They'll Love                                           $150       3       NO  PARTIAL
+ 3  Your connection needs to be verified before you c...                    0       NO  PARTIAL
+ 4  14K Gold Basic Chain                                      $220.00       5      yes  OK
+----------------------------------------------------------------------------------------------------
+Done: 4/4 products scraped, 11 photos total, 1 details screenshots.

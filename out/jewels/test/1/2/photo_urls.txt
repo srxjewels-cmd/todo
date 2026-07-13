@@ -1,0 +1,3 @@
+photo_1.jpg	2800x445	https://www.gorjana.com/cdn/shop/files/260311_Ecomm_gifts_PLP_desktop.jpg
+photo_2.jpg	750x547	https://www.gorjana.com/cdn/shop/files/260311_Ecomm_gifts_PLP_MOBILE__1.jpg
+photo_3.jpg	1200x628	http://www.gorjana.com/cdn/shop/files/260428_app_ShopApp_MaySummer.jpg

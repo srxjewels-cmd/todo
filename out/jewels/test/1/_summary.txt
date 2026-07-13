@@ -1,0 +1,8 @@
+ #  Product                                                     Price  Photos  Details  Status
+----------------------------------------------------------------------------------------------------
+ 1  Gifts They'll Love                                           $150       3       NO  PARTIAL
+ 2  Gifts They'll Love                                           $150       3       NO  PARTIAL
+ 3  Your connection needs to be verified before you c...                    0       NO  PARTIAL
+ 4  14K Gold Basic Chain                                      $220.00       5      yes  OK
+----------------------------------------------------------------------------------------------------
+Done: 4/4 products scraped, 11 photos total, 1 details screenshots.
