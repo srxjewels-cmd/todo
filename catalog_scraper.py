@@ -165,44 +165,47 @@ JS_FIND_DETAILS = """
 }
 """
 
-# Assess accordion state relative to the clickable header: locate the content
-# panel (aria-controls target, else the nearest following sibling with real
-# height, walking up through wrapper levels), report whether it is visibly
-# expanded, and expose the tightest element containing both header and panel.
+# Locate the content panel a DETAILS header controls and report its rendered
+# height, so the caller can tell an open panel from a closed one by measuring
+# it before and after clicking. The panel is the aria-controls target, else
+# the nearest following sibling that has real text and is NOT itself another
+# accordion toggle (this is what stops it locking onto the next section's
+# header, e.g. MATERIALS below DETAILS). Also returns the box of the tightest
+# element wrapping both header and panel, for the screenshot.
 JS_DETAILS_STATE = """
 (o) => {
   const h = o.clickable;
   const doc = h.ownerDocument;
-  const hr = h.getBoundingClientRect();
+  const isToggle = (el) =>
+    el.matches('button, summary, [role="button"], [aria-expanded]') ||
+    !!el.querySelector('button, summary, [role="button"], [aria-expanded]');
   let panel = null;
   const ac = h.getAttribute('aria-controls');
   if (ac) panel = doc.getElementById(ac);
-  if (!panel || panel.getBoundingClientRect().height <= 24) {
+  if (!panel) {
     let base = h;
-    for (let hops = 0; base && hops < 3 && (!panel || panel.getBoundingClientRect().height <= 24); hops++) {
+    for (let hops = 0; base && hops < 3 && !panel; hops++) {
       let sib = base.nextElementSibling;
       while (sib) {
         const r = sib.getBoundingClientRect();
-        if (r.height > 24 && (sib.innerText || '').trim().length > 20) { panel = sib; break; }
+        if (r.height > 6 && (sib.innerText || '').trim().length > 15 && !isToggle(sib)) {
+          panel = sib; break;
+        }
         sib = sib.nextElementSibling;
       }
       base = base.parentElement;
     }
   }
-  const pr = panel ? panel.getBoundingClientRect() : null;
-  const expanded = !!pr && pr.height > 24;
-  let container = null, rect = null;
-  if (expanded) {
-    container = h;
-    while (container && !(container.contains(panel) && container.contains(h))) {
-      container = container.parentElement;
-    }
-    const top = Math.min(hr.top, pr.top), left = Math.min(hr.left, pr.left);
-    const right = Math.max(hr.right, pr.right), bottom = Math.max(hr.bottom, pr.bottom);
-    rect = { x: left, y: top + window.scrollY, width: right - left, height: bottom - top };
+  const hr = h.getBoundingClientRect();
+  const panelH = panel ? panel.getBoundingClientRect().height : 0;
+  let container = h;
+  if (panel && panelH > 6) {
+    let c = h;
+    while (c && !(c.contains(panel) && c.contains(h))) c = c.parentElement;
+    if (c && c.getBoundingClientRect().height <= panelH + hr.height + 120) container = c;
+    else container = panel;   // wrapper too big: screenshot just the content panel
   }
-  return { expanded, container: container || h, rect,
-           ariaExpanded: h.getAttribute('aria-expanded') };
+  return { panelH, ariaExpanded: h.getAttribute('aria-expanded'), container };
 }
 """
 
@@ -537,7 +540,12 @@ def shopify_product(context, url):
     prod = (data or {}).get("product")
     if not isinstance(prod, dict):
         return None
-    images = [im.get("src") for im in prod.get("images", []) if im.get("src")]
+    # Prefer the main gallery (images not tied to a specific variant) so a
+    # personalised product - e.g. an A-Z alphabet necklace with a photo per
+    # letter - doesn't explode into hundreds of near-duplicate variant shots.
+    imgs = prod.get("images", [])
+    main = [im["src"] for im in imgs if im.get("src") and not im.get("variant_ids")]
+    images = main if main else [im["src"] for im in imgs if im.get("src")]
     price = ""
     variants = prod.get("variants") or []
     if variants and variants[0].get("price") not in (None, ""):
@@ -761,6 +769,9 @@ def fetch_image_bytes(context, session, url, referer):
 def download_photos(context, session, gallery, folder, referer, args):
     saved, hashes, manifest = 0, set(), []
     tried, too_small = 0, 0
+    if len(gallery) > args.max_photos:
+        log(f"    capping {len(gallery)} candidate images at --max-photos={args.max_photos}")
+        gallery = gallery[: args.max_photos]
     for bare, original in gallery:
         candidates = [bare]
         if original != bare:
@@ -826,32 +837,38 @@ def capture_details(page, folder, labels):
         clickable.scroll_into_view_if_needed(timeout=8000)
         page.wait_for_timeout(300)
 
-        state = page.evaluate_handle(JS_DETAILS_STATE, handle)
-        expanded = state.get_property("expanded").json_value()
-        # An accordion may start open, closed, or get closed by a stray first
-        # toggle - keep clicking until the panel is measurably visible.
+        def measure():
+            sh = page.evaluate_handle(JS_DETAILS_STATE, handle)
+            panel_h = sh.get_property("panelH").json_value()
+            aria = str(sh.get_property("ariaExpanded").json_value()).lower()
+            container = sh.get_property("container").as_element()
+            return panel_h, aria, container
+
+        base_h, aria, container = measure()
+        # Already-open panel (a plain description block, or aria says expanded).
+        expanded = base_h > 40 or (aria == "true" and base_h > 6)
         clicks = 0
         while not expanded and clicks < 3:
             clickable.click(timeout=8000)
             clicks += 1
-            page.wait_for_timeout(800)
-            state = page.evaluate_handle(JS_DETAILS_STATE, handle)
-            expanded = state.get_property("expanded").json_value()
+            page.wait_for_timeout(750)
+            now_h, aria, container = measure()
+            # Opened only if the controlled panel actually grew, or aria flipped
+            # true with a panel present - not merely that some sibling has size.
+            if now_h > base_h + 40 or (aria == "true" and now_h > 40):
+                expanded = True
+                break
 
-        dest = str(folder / "details.png")
-        if expanded:
-            container = state.get_property("container").as_element()
-            box = container.bounding_box() if container else None
-            if container and box and box["height"] <= 4500:
-                container.screenshot(path=dest)
-            else:
-                rect = state.get_property("rect").json_value()
-                clip = {"x": max(rect["x"] - 4, 0), "y": max(rect["y"] - 4, 0),
-                        "width": rect["width"] + 8, "height": min(rect["height"] + 8, 4500)}
-                page.screenshot(path=dest, clip=clip)
+        if expanded and container is not None:
+            try:
+                container.scroll_into_view_if_needed(timeout=5000)
+                page.wait_for_timeout(200)
+            except Exception:
+                pass
+            container.screenshot(path=str(folder / "details.png"))  # scroll-safe
             log(f"    details.png captured (expanded after {clicks} click(s))")
             return True
-        log("    DETAILS header found but its panel never expanded; skipping "
+        log("    DETAILS header found but its panel never opened; skipping "
             "(no misleading screenshot saved)")
         return False
     except Exception as exc:
@@ -1053,6 +1070,9 @@ def parse_args(argv=None):
                          f"default: {', '.join(DEFAULT_DETAILS_LABELS)})")
     ap.add_argument("--min-photo-side", type=int, default=350,
                     help="skip images smaller than this on either side (default 350)")
+    ap.add_argument("--max-photos", type=int, default=30,
+                    help="max photos to save per product (default 30; guards "
+                         "against variant-image explosions)")
     ap.add_argument("--loose-discovery", action="store_true",
                     help="skip the site-tuned tile rule and use only the "
                          "generic price-card rule")
