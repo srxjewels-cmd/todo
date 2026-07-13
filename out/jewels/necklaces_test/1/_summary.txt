@@ -1,0 +1,7 @@
+ #  Product                                                     Price  Photos  Details  Status
+----------------------------------------------------------------------------------------------------
+ 1  Freshwater Cultured Pearl Toggle Necklace in Gold...       $88.00       5      yes  OK
+ 2  14K Gold Diamond Bezel Necklace in Yellow Gold            $198.00       4      yes  OK
+ 3  10K Gold Plain Adjustable Chain in White Gold             $128.00       2      yes  OK
+----------------------------------------------------------------------------------------------------
+Done: 3/3 products scraped, 11 photos total, 3 details screenshots.

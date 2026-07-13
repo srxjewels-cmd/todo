@@ -1,0 +1,4 @@
+photo_1.jpg	2400x3000	https://images.quince.com/Z4p4qwLMPIVQBhLniICYX/53cebc05a43205882281ddb41bf01f40/NECK-7_3890.jpg
+photo_2.jpg	1080x1350	https://images.quince.com/2isBV1JgciFfwJ6gnP55f2/802eb9cc52a4164ab7c7c53d334b0c60/14K_Gold_Lab_Grown_Diamond_Bezel_Necklace_Yellow_Gold_Melissa_Gonzalez_4x5.png
+photo_3.jpg	2400x3000	https://images.quince.com/1Goder42SNM7z3izla6JMt/ebbba5ef6ca9b20f50a1231b697f2b7d/J-WL-EXTRA_3663.jpg
+photo_4.jpg	2400x3000	https://images.quince.com/5xEgwID50CcoelVmCQEMB0/25682fc64f1cab3840c7d84b4a7c89e1/NECK-6_4222.jpg
