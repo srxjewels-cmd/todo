@@ -11,7 +11,8 @@ Everything (images included, shrunk and embedded) is inside the single HTML
 file, so you can open it directly or upload it anywhere for a bio link.
 
 Setup once:  pip install pillow
-Run:         python make_landing_page.py "D:\quine p\prd" --whatsapp 9198XXXXXXXX --brand "SRX Jewels"
+Run:         python make_landing_page.py "D:\quine p\prd"
+(defaults: brand SRX DIAMONDS, WhatsApp +91 9723891732 - override with --brand/--whatsapp)
 
 The page is written to <root>\index.html.
 """
@@ -310,9 +311,9 @@ def build_html(products, brand, whatsapp):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default=r"D:\quine p\prd")
-    ap.add_argument("--whatsapp", default="",
+    ap.add_argument("--whatsapp", default="919723891732",
                     help="your WhatsApp number, country code + digits, e.g. 9198XXXXXXXX")
-    ap.add_argument("--brand", default="SRX Jewels")
+    ap.add_argument("--brand", default="SRX DIAMONDS")
     ap.add_argument("--out", default="", help="output html path (default <root>\\index.html)")
     args = ap.parse_args(argv)
 
@@ -332,7 +333,7 @@ def main(argv=None):
     if not products:
         print("No products found (need subfolders with info.txt / photos).")
         return 1
-    html_out = build_html(products, args.brand, args.whatsapp or "919999999999")
+    html_out = build_html(products, args.brand, args.whatsapp or "919723891732")
     out = Path(args.out) if args.out else (root / "index.html")
     out.write_text(html_out, encoding="utf-8")
     mb = out.stat().st_size / 1048576
