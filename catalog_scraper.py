@@ -209,33 +209,75 @@ JS_DETAILS_STATE = """
 }
 """
 
-# Extract the DETAILS panel's text as clean, notepad-ready lines. Uses
-# textContent (not a screenshot), so it works even when the window is
-# minimised or the panel never visually painted - list items become bullet
-# lines, paragraphs stay on their own lines, blank runs collapse.
-JS_PANEL_TEXT = """
-(panel) => {
-  if (!panel) return '';
+# Extract the DETAILS section's text as clean, notepad-ready lines, reading
+# textContent (not a screenshot) so it works even when the window is
+# minimised. Tries several ways to locate the *content* for a header,
+# because sites nest it differently: (1) the aria-controls target, (2) the
+# nearest following non-toggle sibling, walking up wrapper levels, (3) the
+# enclosing accordion-item minus the header's own label. Picks the first
+# candidate that yields real body text (not just the header word), so we
+# never write a file that only says "DETAILS".
+JS_EXTRACT_DETAILS = """
+(o) => {
+  const h = o.clickable;
+  const doc = h.ownerDocument;
   const norm = s => (s || '').replace(/\\u00a0/g, ' ').replace(/[ \\t]+/g, ' ').trim();
-  const lines = [];
-  const push = (t, bullet) => { t = norm(t); if (t) lines.push(bullet ? '- ' + t : t); };
-  const lis = panel.querySelectorAll('li');
-  if (lis.length) {
-    panel.querySelectorAll('p, li').forEach(
-      el => push(el.textContent, el.tagName.toLowerCase() === 'li'));
-  } else {
-    const raw = panel.innerText || panel.textContent || '';
-    raw.split('\\n').forEach(l => push(l, false));
+  const label = norm(h.textContent).split('\\n')[0].slice(0, 60);
+  const labelLC = norm(h.textContent).toLowerCase();
+  const isToggle = (el) => el.matches('button, summary, [role="button"], [aria-expanded]');
+
+  const cleanText = (el) => {
+    if (!el) return '';
+    const lines = [];
+    const push = (t, b) => { t = norm(t); if (t) lines.push(b ? '- ' + t : t); };
+    const lis = el.querySelectorAll('li');
+    if (lis.length) {
+      el.querySelectorAll('p, li').forEach(
+        x => push(x.textContent, x.tagName.toLowerCase() === 'li'));
+    } else {
+      (el.innerText || el.textContent || '').split('\\n').forEach(l => push(l, false));
+    }
+    const out = [];
+    for (const l of lines) if (l !== out[out.length - 1]) out.push(l);
+    while (out.length && out[0].toLowerCase().replace(/^-\\s*/, '') === labelLC) out.shift();
+    return out.join('\\n');
+  };
+
+  const candidates = [];
+  const ac = h.getAttribute('aria-controls');
+  if (ac) { const p = doc.getElementById(ac); if (p) candidates.push(p); }
+  let base = h;
+  for (let hops = 0; base && hops < 4; hops++) {
+    let sib = base.nextElementSibling;
+    while (sib) {
+      if (!isToggle(sib) && norm(sib.textContent).length > 15) { candidates.push(sib); break; }
+      sib = sib.nextElementSibling;
+    }
+    base = base.parentElement;
   }
-  const out = [];
-  for (const l of lines) if (l !== out[out.length - 1]) out.push(l);
-  return out.join('\\n');
+  let anc = h.parentElement;
+  for (let hops = 0; anc && hops < 4; hops++) {
+    if (norm(anc.textContent).length > labelLC.length + 25) { candidates.push(anc); break; }
+    anc = anc.parentElement;
+  }
+
+  let best = '';
+  for (const c of candidates) {
+    const t = cleanText(c);
+    if (t.length >= 25 && t.toLowerCase() !== labelLC) { best = t; break; }
+    if (t.length > best.length) best = t;
+  }
+  return { label, text: best };
 }
 """
 
-# Injected before any page script runs: hides the most common automation
+# Injected before any page script runs. Hides the most common automation
 # tells (navigator.webdriver, missing chrome object, empty plugins) so sites
-# with lighter bot-detection treat the browser as an ordinary Chrome.
+# with lighter bot-detection treat the browser as an ordinary Chrome; and
+# pins the page to "visible" so that minimising the window does not make the
+# site withhold content (many accordions inject their body only while the
+# tab reports itself visible - that is why details.txt came back with just
+# the header when minimised).
 STEALTH_JS = """
 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
 Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
@@ -247,6 +289,17 @@ try {
     (p && p.name === 'notifications'
       ? Promise.resolve({ state: Notification.permission })
       : q(p));
+} catch (e) {}
+try {
+  Object.defineProperty(document, 'visibilityState', {get: () => 'visible', configurable: true});
+  Object.defineProperty(document, 'webkitVisibilityState', {get: () => 'visible', configurable: true});
+  Object.defineProperty(document, 'hidden', {get: () => false, configurable: true});
+  Object.defineProperty(document, 'webkitHidden', {get: () => false, configurable: true});
+  const swallow = (e) => { e.stopImmediatePropagation(); };
+  document.addEventListener('visibilitychange', swallow, true);
+  window.addEventListener('visibilitychange', swallow, true);
+  window.addEventListener('webkitvisibilitychange', swallow, true);
+  window.addEventListener('blur', swallow, true);
 } catch (e) {}
 """
 
@@ -896,27 +949,20 @@ def capture_details(page, folder, labels):
                 break
 
         # 1) details.txt - the reliable deliverable. Reads the section's text
-        #    straight from the DOM, so it is correct even if the browser window
-        #    is minimised (which blanks screenshots).
+        #    straight from the DOM via several strategies, so it is correct even
+        #    when the window is minimised. Never writes a header-only file.
         wrote_txt = False
-        target = panel if panel is not None else container
-        if target is not None:
-            try:
-                text = (target.evaluate(JS_PANEL_TEXT) or "").strip()
-            except Exception:
-                text = ""
-            if len(text) >= 3:
-                try:
-                    label = (clickable.evaluate(
-                        "el => (el.textContent || '').replace(/\\s+/g, ' ').trim()")
-                        or "").split("\n")[0][:60]
-                except Exception:
-                    label = ""
-                header = (label or "DETAILS").upper()
-                (folder / "details.txt").write_text(header + "\n\n" + text + "\n",
-                                                    encoding="utf-8")
-                wrote_txt = True
-                log(f"    details.txt written ({len(text)} chars)")
+        try:
+            res = page.evaluate(JS_EXTRACT_DETAILS, handle)
+        except Exception:
+            res = None
+        label = ((res or {}).get("label") or "DETAILS").strip()
+        text = ((res or {}).get("text") or "").strip()
+        if len(text) >= 5 and text.lower() != label.lower():
+            (folder / "details.txt").write_text(
+                label.upper() + "\n\n" + text + "\n", encoding="utf-8")
+            wrote_txt = True
+            log(f"    details.txt written ({len(text)} chars)")
 
         # 2) details.png - best effort; may be blank if the window is minimised.
         if expanded and container is not None:

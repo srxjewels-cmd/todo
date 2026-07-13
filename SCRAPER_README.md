@@ -9,11 +9,13 @@ screenshot, best-effort), plus `info.txt` (name, price, URL) and
 quince.com and falls back to generic heuristics on other standard
 e-commerce sites.
 
-> The DETAILS text is read straight from the page, so `details.txt` is
-> correct even if you minimise the browser window. A screenshot (`details.png`)
-> can come out blank when the window is minimised, because Windows tells
-> Chrome to stop drawing a hidden window - so `details.txt` is the file to
-> trust; the PNG is a bonus when the window stays visible.
+> `details.txt` is read straight from the page and the browser is pinned to
+> "visible" (via launch flags + a visibility override), so minimising the
+> window no longer makes a site withhold its DETAILS body - the text comes
+> out correct either way. The extractor tries several ways to find the
+> content and never writes a file that only contains the header word.
+> `details.png` is a best-effort bonus and can still be blank when minimised
+> (Windows stops drawing a hidden window) - trust the `.txt`.
 
 ```
 <out>\
