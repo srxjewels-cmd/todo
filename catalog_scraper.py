@@ -378,6 +378,10 @@ def new_http_session():
 
 
 def discover_products(page, args, out_root):
+    shop = shopify_collection_products(page.context, args.category_url, args.limit)
+    if shop:
+        log(f"Shopify collection detected - {len(shop)} products via products.json")
+        return shop
     log(f"Opening category page: {args.category_url}")
     status, challenged = goto_resilient(page, args.category_url, "category page")
     if challenged:
@@ -510,6 +514,106 @@ def extract_name_price(page):
     return name, price
 
 
+def context_get_json(context, url):
+    """GET url through the browser context (carries the site's cookies/session)
+    and parse JSON. Returns None on any failure or non-JSON response."""
+    try:
+        resp = context.request.get(url, timeout=25000)
+        if resp.ok and "json" in resp.headers.get("content-type", "").lower():
+            return resp.json()
+    except Exception:
+        pass
+    return None
+
+
+def shopify_product(context, url):
+    """If url is a Shopify product page, fetch its full data via <url>.json.
+    Returns {name, price, images:[full-res urls]} or None. This bypasses the
+    rendered DOM entirely - reliable on the whole Shopify ecosystem."""
+    base = url.split("?")[0].rstrip("/")
+    if "/products/" not in base:
+        return None
+    data = context_get_json(context, base + ".json")
+    prod = (data or {}).get("product")
+    if not isinstance(prod, dict):
+        return None
+    images = [im.get("src") for im in prod.get("images", []) if im.get("src")]
+    price = ""
+    variants = prod.get("variants") or []
+    if variants and variants[0].get("price") not in (None, ""):
+        try:
+            price = f"${float(variants[0]['price']):,.2f}"
+        except (TypeError, ValueError):
+            price = str(variants[0]["price"])
+    return {"name": prod.get("title", ""), "price": price, "images": images}
+
+
+def shopify_collection_products(context, category_url, limit):
+    """If category_url is a Shopify collection, list its products via
+    products.json. Returns [{url, tile_text}, ...] or []."""
+    parts = urlsplit(category_url)
+    if "/collections/" not in parts.path:
+        return []
+    base = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+    out, page_no = [], 1
+    while len(out) < limit and page_no <= 6:
+        data = context_get_json(context, f"{base}/products.json?limit=250&page={page_no}")
+        prods = (data or {}).get("products") or []
+        if not prods:
+            break
+        for p in prods:
+            if p.get("handle"):
+                out.append({"url": f"{parts.scheme}://{parts.netloc}/products/{p['handle']}",
+                            "tile_text": p.get("title", "")})
+        page_no += 1
+    return out[:limit]
+
+
+def gallery_from_metadata(page):
+    """Product images declared in the page's structured data: JSON-LD
+    Product.image[] and og:image. These are canonical, full-resolution, and
+    present on most e-commerce sites even when the DOM gallery is awkward."""
+    urls = []
+    for block in page.locator("script[type='application/ld+json']").all():
+        try:
+            data = json.loads(block.text_content() or "")
+        except Exception:
+            continue
+        stack = data if isinstance(data, list) else [data]
+        for node in stack:
+            if not isinstance(node, dict):
+                continue
+            graph = node.get("@graph")
+            if isinstance(graph, list):
+                stack.extend(graph)
+            if str(node.get("@type", "")).lower() != "product":
+                continue
+            img = node.get("image")
+            candidates = img if isinstance(img, list) else [img]
+            for c in candidates:
+                if isinstance(c, str):
+                    urls.append(c)
+                elif isinstance(c, dict) and c.get("url"):
+                    urls.append(c["url"])
+    try:
+        for m in page.locator(
+                "meta[property='og:image'], meta[property='og:image:secure_url'], "
+                "meta[name='og:image']").all():
+            c = m.get_attribute("content")
+            if c:
+                urls.append(c)
+    except Exception:
+        pass
+    out = {}
+    for u in urls:
+        u = (u or "").strip()
+        if u.startswith("//"):
+            u = "https:" + u
+        if u.startswith("http") and ".svg" not in u.lower():
+            out.setdefault(strip_image_params(u), u)
+    return list(out.items())
+
+
 def collect_gallery_urls(page, args):
     """Return ordered, deduped [(bare_url, original_url), ...] for the gallery.
 
@@ -533,7 +637,18 @@ def collect_gallery_urls(page, args):
         if args.image_hosts and not host_matches(parts.netloc, args.image_hosts):
             return None, None
         path = parts.path.lower()
-        if ".svg" in path or not re.search(r"\.(jpe?g|png|webp|avif)$", path):
+        if ".svg" in path:
+            return None, None
+        # Accept URLs that end in an image extension, declare an image format
+        # in the query, or come from an obvious image/CDN host - many modern
+        # CDNs serve images without a file extension. The download step
+        # validates Content-Type and size, so being permissive here is safe.
+        looks_image = (
+            re.search(r"\.(jpe?g|png|webp|avif)(?:$|[?&])", path)
+            or re.search(r"(?:format|fm|type)=(?:jpe?g|jpg|png|webp|avif)", parts.query.lower())
+            or "/image" in path or "/media" in path or "/cdn/" in path
+            or parts.netloc.split(".")[0] in ("images", "cdn", "img", "media", "assets"))
+        if not looks_image:
             return None, None
         return absu, strip_image_params(absu)
 
@@ -600,8 +715,12 @@ def collect_gallery_urls(page, args):
             continue
         for absu, bare in u["pairs"]:
             ordered.setdefault(bare, absu)
+    # Always fold in images the page declares in its structured data - these
+    # rescue sites whose DOM gallery is lazy-loaded or oddly structured.
+    for bare, absu in gallery_from_metadata(page):
+        ordered.setdefault(bare, absu)
     if not ordered:
-        # Fallback: any page-embedded JSON (Next.js data) mentioning the CDN.
+        # Last resort: any image URL embedded in page JSON (Next.js/Nuxt data).
         html = page.content()
         for m in re.finditer(r"https?://[^\s\"'\\]+\.(?:jpe?g|png|webp)[^\s\"'\\]*", html):
             u = m.group(0)
@@ -610,33 +729,48 @@ def collect_gallery_urls(page, args):
                 continue
             if args.image_hosts and not host_matches(parts.netloc, args.image_hosts):
                 continue
-            bare = strip_image_params(u)
-            ordered.setdefault(bare, u)
+            ordered.setdefault(strip_image_params(u), u)
     return list(ordered.items())
 
 
-def download_photos(session, gallery, folder, referer, args):
+def fetch_image_bytes(context, session, url, referer):
+    """Download one image, browser-context first (carries the site's cookies
+    and referer, so hotlink/anti-bot protection that blocks a plain request
+    is bypassed), then a plain-requests fallback."""
+    def is_image(head, ctype):
+        return ("image" in (ctype or "").lower()
+                or head[:3] in (b"\xff\xd8\xff", b"\x89PN") or head[:4] == b"RIFF"
+                or head[:4] == b"GIF8")
+    try:
+        resp = context.request.get(url, headers={"Referer": referer}, timeout=45000)
+        if resp.ok:
+            body = resp.body()
+            if body and is_image(body, resp.headers.get("content-type", "")):
+                return body
+    except Exception:
+        pass
+    try:
+        r = session.get(url, timeout=60, headers={"Referer": referer})
+        if r.ok and r.content and is_image(r.content, r.headers.get("Content-Type", "")):
+            return r.content
+    except requests.RequestException:
+        pass
+    return None
+
+
+def download_photos(context, session, gallery, folder, referer, args):
     saved, hashes, manifest = 0, set(), []
+    tried, too_small = 0, 0
     for bare, original in gallery:
         candidates = [bare]
         if original != bare:
             candidates.append(original)
+        tried += 1
         content, used_url = None, None
         for cand in candidates:
-            for attempt in (1, 2):
-                try:
-                    r = session.get(cand, timeout=60, headers={"Referer": referer})
-                    ctype = r.headers.get("Content-Type", "")
-                    if r.ok and r.content and ("image" in ctype or r.content[:3] in
-                                               (b"\xff\xd8\xff", b"RIF", b"\x89PN")):
-                        content, used_url = r.content, cand
-                        break
-                except requests.RequestException as exc:
-                    if attempt == 2:
-                        log(f"    image failed twice: {cand} ({exc})")
-                    else:
-                        time.sleep(1.5)
+            content = fetch_image_bytes(context, session, cand, referer)
             if content:
+                used_url = cand
                 break
         if not content:
             continue
@@ -651,6 +785,7 @@ def download_photos(session, gallery, folder, referer, args):
             except Exception:
                 continue
             if min(size) < args.min_photo_side:
+                too_small += 1
                 continue          # icon / swatch, not a product photo
         hashes.add(digest)
         saved += 1
@@ -671,6 +806,11 @@ def download_photos(session, gallery, folder, referer, args):
         time.sleep(random.uniform(0.3, 0.7))
     if manifest:
         (folder / "photo_urls.txt").write_text("\n".join(manifest) + "\n", encoding="utf-8")
+    if saved == 0 and tried:
+        reason = (f"{too_small} were below the {args.min_photo_side}px minimum "
+                  f"(try --min-photo-side)" if too_small else
+                  "the image host blocked the downloads")
+        log(f"    note: found {tried} image URL(s) but saved 0 - {reason}")
     return saved
 
 
@@ -711,12 +851,8 @@ def capture_details(page, folder, labels):
                 page.screenshot(path=dest, clip=clip)
             log(f"    details.png captured (expanded after {clicks} click(s))")
             return True
-        hb = clickable.bounding_box()
-        if hb:
-            clip = {"x": max(hb["x"] - 8, 0), "y": max(hb["y"] - 8, 0),
-                    "width": hb["width"] + 16, "height": 620}
-            page.screenshot(path=str(folder / "details.png"), clip=clip)
-        log("    DETAILS panel never became visible; saved best-effort region only")
+        log("    DETAILS header found but its panel never expanded; skipping "
+            "(no misleading screenshot saved)")
         return False
     except Exception as exc:
         log(f"    DETAILS capture failed: {exc}")
@@ -747,13 +883,27 @@ def scrape_product(page, session, product, folder, args):
     page.evaluate("window.scrollTo(0, 0)")
     page.wait_for_timeout(400)
 
+    context = page.context
+    shop = shopify_product(context, url)
     name, price = extract_name_price(page)
+    if shop:
+        name = shop["name"] or name
+        price = shop["price"] or price
     log(f"    name : {name or '(not found)'}")
     log(f"    price: {price or '(not found)'}")
 
-    gallery = collect_gallery_urls(page, args)
-    log(f"    gallery images found: {len(gallery)}")
-    photos = download_photos(session, gallery, folder, url, args)
+    if shop and shop["images"]:
+        gallery, seen = [], set()
+        for u in shop["images"]:
+            b = strip_image_params(u)
+            if b not in seen:
+                seen.add(b)
+                gallery.append((b, u))
+        log(f"    gallery via Shopify product data: {len(gallery)} images")
+    else:
+        gallery = collect_gallery_urls(page, args)
+        log(f"    gallery images found: {len(gallery)}")
+    photos = download_photos(context, session, gallery, folder, url, args)
 
     dismiss_overlays(page)
     details_ok = capture_details(page, folder, args.details_labels)
