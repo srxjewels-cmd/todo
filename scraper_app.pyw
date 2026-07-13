@@ -184,6 +184,7 @@ class App:
         self.log.configure(state="disabled")
         self.photos_done = 0
         self.summary_line = ""
+        self.blocked = False
         self.bar.configure(value=0, maximum=100)
         self.status_var.set("Starting...")
         self.open_btn.configure(state="disabled")
@@ -269,13 +270,24 @@ class App:
             return
         if s.startswith("Done:"):
             self.summary_line = s
+        if "COULD NOT SCRAPE THIS SITE" in s or "protected by anti-bot" in s:
+            self.blocked = True
 
     def finish(self, rc):
         self.proc = None
         self.set_running(False)
         self.bar.configure(value=self.bar["maximum"])
         self.open_btn.configure(state="normal")
-        if self.summary_line:
+        if self.blocked or rc == 3:
+            self.status_var.set("This site blocked the scraper (anti-bot protection).")
+            messagebox.showwarning(
+                "Jewels Scraper",
+                "This website is protected by anti-bot software and blocked "
+                "the browser, so nothing could be downloaded.\n\n"
+                "Big retailers and marketplaces (Brilliant Earth, Amazon, Etsy...) "
+                "usually can't be scraped. Smaller brand shops — especially "
+                "Shopify stores — normally work. See the log for tips.")
+        elif self.summary_line:
             self.status_var.set(self.summary_line)
             messagebox.showinfo("Jewels Scraper", self.summary_line +
                                 "\n\nOpening the output folder now.")

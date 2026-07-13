@@ -206,6 +206,36 @@ JS_DETAILS_STATE = """
 }
 """
 
+# Injected before any page script runs: hides the most common automation
+# tells (navigator.webdriver, missing chrome object, empty plugins) so sites
+# with lighter bot-detection treat the browser as an ordinary Chrome.
+STEALTH_JS = """
+Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+window.chrome = window.chrome || { runtime: {} };
+try {
+  const q = window.navigator.permissions && window.navigator.permissions.query;
+  if (q) window.navigator.permissions.query = (p) =>
+    (p && p.name === 'notifications'
+      ? Promise.resolve({ state: Notification.permission })
+      : q(p));
+} catch (e) {}
+"""
+
+# Text/status that means an anti-bot interstitial is showing rather than the
+# real page (Cloudflare, PerimeterX/HUMAN, Akamai, Imperva, generic WAFs).
+CHALLENGE_MARKERS = re.compile(
+    r"(just a moment|pardon our interruption|access denied|attention required|"
+    r"verify you are (a )?human|checking your browser|enable javascript and cookies|"
+    r"cf-browser-verification|px-captcha|please verify you are|unusual traffic|"
+    r"request unsuccessful|bot detection|are you a robot)", re.I)
+
+
+class SiteBlocked(Exception):
+    """Raised when a site's anti-bot protection prevents reading any products."""
+
+
 # ------------------------------------------------------------------- helpers
 
 
@@ -270,6 +300,67 @@ def dismiss_overlays(page):
         pass
 
 
+def _page_text(page):
+    try:
+        title = page.title() or ""
+    except Exception:
+        title = ""
+    try:
+        body = page.evaluate(
+            "() => document.body ? document.body.innerText.slice(0, 3000) : ''")
+    except Exception:
+        body = ""
+    return title, body
+
+
+def goto_resilient(page, url, what="page"):
+    """Navigate to url, tolerating bot-protection interstitials. Returns
+    (http_status, challenged). Waits out and reloads through challenge pages
+    a few times; a page that clears is treated as success. Never raises for
+    a challenge - callers decide what to do when `challenged` is True."""
+    status = None
+    try:
+        resp = page.goto(url, timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
+        status = resp.status if resp else None
+    except PWTimeout:
+        pass
+    page.wait_for_timeout(2500)
+    for attempt in range(1, 4):
+        title, body = _page_text(page)
+        challenged = bool(CHALLENGE_MARKERS.search(f"{title} {body}")) or status in (403, 429, 503)
+        if not challenged:
+            return status, False
+        log(f"    {what}: anti-bot check detected (HTTP {status}); "
+            f"waiting for it to clear ({attempt}/3)...")
+        page.wait_for_timeout(5000 + attempt * 3000)
+        title, body = _page_text(page)
+        if not CHALLENGE_MARKERS.search(f"{title} {body}") and status not in (403, 429, 503):
+            log(f"    {what}: cleared.")
+            return status, False
+        if attempt < 3:
+            try:
+                resp = page.reload(timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
+                status = resp.status if resp else status
+                page.wait_for_timeout(2500)
+            except PWTimeout:
+                pass
+    title, body = _page_text(page)
+    still = bool(CHALLENGE_MARKERS.search(f"{title} {body}")) or status in (403, 429, 503)
+    return status, still
+
+
+BLOCK_HELP = (
+    "This site is protected by anti-bot software and blocked the automated "
+    "browser (HTTP 403 / challenge page), so no products could be read.\n"
+    "  * Large retailers and marketplaces (Brilliant Earth, Amazon, Etsy, ...) "
+    "actively block scrapers - often nothing can get through.\n"
+    "  * Make sure 'Show the browser while it works' is ticked - a visible "
+    "browser passes more checks than a hidden one.\n"
+    "  * Try again in a minute, or solve any 'verify you are human' box by hand "
+    "in the browser window the moment it appears.\n"
+    "  * Smaller brand shops (especially Shopify stores) usually work fine.")
+
+
 def new_http_session():
     s = requests.Session()
     s.headers.update({
@@ -288,10 +379,9 @@ def new_http_session():
 
 def discover_products(page, args, out_root):
     log(f"Opening category page: {args.category_url}")
-    resp = page.goto(args.category_url, timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
-    if resp and resp.status >= 400:
-        raise RuntimeError(f"category page returned HTTP {resp.status}")
-    page.wait_for_timeout(2500)
+    status, challenged = goto_resilient(page, args.category_url, "category page")
+    if challenged:
+        log("  the site is showing an anti-bot page; still trying to read products...")
     dismiss_overlays(page)
 
     try:
@@ -365,6 +455,8 @@ def discover_products(page, args, out_root):
     debug_path = out_root / "_category_debug.json"
     debug_path.write_text(json.dumps({"discovered": ordered, "all_anchors": data["items"]},
                                      indent=2), encoding="utf-8")
+    if not ordered and challenged:
+        raise SiteBlocked(BLOCK_HELP)
     if len(ordered) < args.limit:
         log(f"  warning: only {len(ordered)} product links found "
             f"(wanted {args.limit}); anchor dump: {debug_path}")
@@ -638,10 +730,11 @@ def capture_details(page, folder, labels):
 
 def scrape_product(page, session, product, folder, args):
     url = product["url"]
-    resp = page.goto(url, timeout=NAV_TIMEOUT_MS, wait_until="domcontentloaded")
-    if resp and resp.status >= 400:
-        raise RuntimeError(f"HTTP {resp.status}")
-    page.wait_for_timeout(2500)
+    status, challenged = goto_resilient(page, url, "product page")
+    if status and status >= 400 and not challenged:
+        raise RuntimeError(f"HTTP {status}")
+    if challenged:
+        log("    still behind an anti-bot page; results for this product may be empty")
     dismiss_overlays(page)
     try:
         page.wait_for_selector("h1", timeout=15_000)
@@ -687,7 +780,12 @@ def run(args):
     results = []
 
     with sync_playwright() as p:
-        launch_kwargs = {"headless": not args.headed}
+        # Anti-bot: drop the automation launch flags Chromium normally exposes.
+        launch_kwargs = {
+            "headless": not args.headed,
+            "args": ["--disable-blink-features=AutomationControlled"],
+            "ignore_default_args": ["--enable-automation"],
+        }
         if args.chromium_path:
             launch_kwargs["executable_path"] = args.chromium_path
         proxy_url = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
@@ -699,8 +797,14 @@ def run(args):
             user_agent=USER_AGENT,
             viewport={"width": 1440, "height": 950},
             locale="en-US",
-            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+            extra_http_headers={
+                "Accept-Language": "en-US,en;q=0.9",
+                "Upgrade-Insecure-Requests": "1",
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"Windows"',
+            },
         )
+        context.add_init_script(STEALTH_JS)
         page = context.new_page()
 
         if args.products_file:
@@ -710,7 +814,15 @@ def run(args):
             products = products[: args.limit]
             log(f"Loaded {len(products)} product URLs from {args.products_file}")
         else:
-            products = discover_products(page, args, out_root)
+            try:
+                products = discover_products(page, args, out_root)
+            except SiteBlocked as exc:
+                log("\n" + "=" * 64)
+                log("COULD NOT SCRAPE THIS SITE")
+                log("=" * 64)
+                log(str(exc))
+                browser.close()
+                return 3
             if not products:
                 log("No product tiles found; treating the URL as a single product page")
                 products = [{"url": args.category_url, "tile_text": ""}]
@@ -809,6 +921,12 @@ def parse_args(argv=None):
 if __name__ == "__main__":
     try:
         sys.exit(run(parse_args()))
+    except SiteBlocked as exc:
+        print("\n" + "=" * 64)
+        print("COULD NOT SCRAPE THIS SITE")
+        print("=" * 64)
+        print(str(exc))
+        sys.exit(3)
     except KeyboardInterrupt:
         print("\nInterrupted.")
         sys.exit(130)

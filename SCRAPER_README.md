@@ -95,6 +95,25 @@ backed by real small files, native `<details>`, a DESCRIPTION-labelled
 panel). Both suites pass; the live Quince category (15/15 products,
 71 photos, 15 expanded DETAILS) was scraped successfully via the workflow.
 
+## Anti-bot protection
+
+The scraper hides the usual automation tells (`navigator.webdriver`, the
+automation launch flags, missing `chrome` object) and, when it hits a
+challenge page (Cloudflare "Just a moment", PerimeterX "Pardon Our
+Interruption", Akamai/Imperva, generic WAFs), it waits and reloads a few
+times to let the check clear. If it still can't get through it stops with a
+plain-English "COULD NOT SCRAPE THIS SITE" message instead of a crash.
+
+What this means in practice:
+
+* **Small/mid brand shops (especially Shopify stores): usually work.**
+* **Large retailers & marketplaces** — Brilliant Earth, Amazon, Etsy, and
+  similar — run PerimeterX/Akamai-class protection and **often can't be
+  scraped at all**, from any tool. A visible browser (keep "Show the browser"
+  on) and a residential connection (your own PC) do better than a hidden
+  browser on a cloud/datacenter IP. If a "verify you are human" box appears,
+  solving it by hand in the window sometimes lets the run continue.
+
 ## Notes and limits
 
 * Sites behind aggressive bot protection (Cloudflare challenges etc.) may
