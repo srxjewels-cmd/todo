@@ -1,0 +1,17 @@
+Output root: /home/runner/work/todo/todo/out/jewels/test/1
+Opening category page: https://www.mejuri.com/shop/t/type/necklaces
+  warning: only 0 product links found (wanted 3); anchor dump: out/jewels/test/1/_category_debug.json
+No product tiles found; treating the URL as a single product page
+Discovered 1 product URLs (in page order):
+   1. https://www.mejuri.com/shop/t/type/necklaces
+
+[1/1] https://www.mejuri.com/shop/t/type/necklaces
+    attempt 1 failed: HTTP 404
+    attempt 2 failed: HTTP 404
+
+ #  Product                                                     Price  Photos  Details  Status
+----------------------------------------------------------------------------------------------------
+ 1  https://www.mejuri.com/shop/t/type/necklaces                            0       NO  FAILED
+----------------------------------------------------------------------------------------------------
+Done: 0/1 products scraped, 0 photos total, 0 details screenshots.
+Failures: #1

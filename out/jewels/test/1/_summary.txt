@@ -1,0 +1,6 @@
+ #  Product                                                     Price  Photos  Details  Status
+----------------------------------------------------------------------------------------------------
+ 1  https://www.mejuri.com/shop/t/type/necklaces                            0       NO  FAILED
+----------------------------------------------------------------------------------------------------
+Done: 0/1 products scraped, 0 photos total, 0 details screenshots.
+Failures: #1
