@@ -15,7 +15,17 @@ heuristics on other standard e-commerce sites.
 plus _summary.txt (end-of-run table) and _category_debug.json
 ```
 
-## Three ways to run it
+## Desktop app (easiest)
+
+Run `Setup_Jewels_Scraper.bat` once — it installs the app to
+`%USERPROFILE%\JewelsScraper`, installs dependencies, and puts a
+**Jewels Scraper** launcher on your Desktop. The app gives you: a URL box,
+a product-count spinner, a Browse... button to pick any output folder, a
+"show the browser" toggle, live log + progress bar, Stop, and an
+"Open output folder" button. It drives `catalog_scraper.py` locally, so the
+photos land directly in the folder you chose.
+
+## Three more ways to run it
 
 **1. Ask Claude** — say "scrape <URL>" in the session; Claude dispatches the
 workflow below and returns download links/zips when it finishes.
