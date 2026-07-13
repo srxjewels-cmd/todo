@@ -2,10 +2,18 @@
 
 `catalog_scraper.py` scrapes the first N products of a category/listing page:
 one numbered folder per product with every gallery photo at the highest
-available resolution, a screenshot of the expanded DETAILS/DESCRIPTION
-section, `info.txt` (name, price, URL), and `photo_urls.txt` (source URL of
-every saved photo). It is tuned for quince.com and falls back to generic
-heuristics on other standard e-commerce sites.
+available resolution, the DETAILS/DESCRIPTION section saved two ways -
+**`details.txt`** (the exact text, always reliable) and `details.png` (a
+screenshot, best-effort), plus `info.txt` (name, price, URL) and
+`photo_urls.txt` (source URL of every saved photo). It is tuned for
+quince.com and falls back to generic heuristics on other standard
+e-commerce sites.
+
+> The DETAILS text is read straight from the page, so `details.txt` is
+> correct even if you minimise the browser window. A screenshot (`details.png`)
+> can come out blank when the window is minimised, because Windows tells
+> Chrome to stop drawing a hidden window - so `details.txt` is the file to
+> trust; the PNG is a bonus when the window stays visible.
 
 ```
 <out>\

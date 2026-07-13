@@ -205,7 +205,31 @@ JS_DETAILS_STATE = """
     if (c && c.getBoundingClientRect().height <= panelH + hr.height + 120) container = c;
     else container = panel;   // wrapper too big: screenshot just the content panel
   }
-  return { panelH, ariaExpanded: h.getAttribute('aria-expanded'), container };
+  return { panelH, ariaExpanded: h.getAttribute('aria-expanded'), container, panel };
+}
+"""
+
+# Extract the DETAILS panel's text as clean, notepad-ready lines. Uses
+# textContent (not a screenshot), so it works even when the window is
+# minimised or the panel never visually painted - list items become bullet
+# lines, paragraphs stay on their own lines, blank runs collapse.
+JS_PANEL_TEXT = """
+(panel) => {
+  if (!panel) return '';
+  const norm = s => (s || '').replace(/\\u00a0/g, ' ').replace(/[ \\t]+/g, ' ').trim();
+  const lines = [];
+  const push = (t, bullet) => { t = norm(t); if (t) lines.push(bullet ? '- ' + t : t); };
+  const lis = panel.querySelectorAll('li');
+  if (lis.length) {
+    panel.querySelectorAll('p, li').forEach(
+      el => push(el.textContent, el.tagName.toLowerCase() === 'li'));
+  } else {
+    const raw = panel.innerText || panel.textContent || '';
+    raw.split('\\n').forEach(l => push(l, false));
+  }
+  const out = [];
+  for (const l of lines) if (l !== out[out.length - 1]) out.push(l);
+  return out.join('\\n');
 }
 """
 
@@ -839,39 +863,66 @@ def capture_details(page, folder, labels):
 
         def measure():
             sh = page.evaluate_handle(JS_DETAILS_STATE, handle)
-            panel_h = sh.get_property("panelH").json_value()
-            aria = str(sh.get_property("ariaExpanded").json_value()).lower()
-            container = sh.get_property("container").as_element()
-            return panel_h, aria, container
+            return (sh.get_property("panelH").json_value(),
+                    str(sh.get_property("ariaExpanded").json_value()).lower(),
+                    sh.get_property("container").as_element(),
+                    sh.get_property("panel").as_element())
 
-        base_h, aria, container = measure()
+        base_h, aria, container, panel = measure()
         # Already-open panel (a plain description block, or aria says expanded).
         expanded = base_h > 40 or (aria == "true" and base_h > 6)
         clicks = 0
         while not expanded and clicks < 3:
-            clickable.click(timeout=8000)
+            try:
+                clickable.click(timeout=8000)
+            except Exception:
+                break
             clicks += 1
-            page.wait_for_timeout(750)
-            now_h, aria, container = measure()
+            page.wait_for_timeout(700)
+            base_h2, aria, container, panel = measure()
             # Opened only if the controlled panel actually grew, or aria flipped
             # true with a panel present - not merely that some sibling has size.
-            if now_h > base_h + 40 or (aria == "true" and now_h > 40):
+            if base_h2 > base_h + 40 or (aria == "true" and base_h2 > 40):
                 expanded = True
                 break
 
+        # 1) details.txt - the reliable deliverable. Reads the section's text
+        #    straight from the DOM, so it is correct even if the browser window
+        #    is minimised (which blanks screenshots).
+        wrote_txt = False
+        target = panel if panel is not None else container
+        if target is not None:
+            try:
+                text = (target.evaluate(JS_PANEL_TEXT) or "").strip()
+            except Exception:
+                text = ""
+            if len(text) >= 3:
+                try:
+                    label = (clickable.evaluate(
+                        "el => (el.textContent || '').replace(/\\s+/g, ' ').trim()")
+                        or "").split("\n")[0][:60]
+                except Exception:
+                    label = ""
+                header = (label or "DETAILS").upper()
+                (folder / "details.txt").write_text(header + "\n\n" + text + "\n",
+                                                    encoding="utf-8")
+                wrote_txt = True
+                log(f"    details.txt written ({len(text)} chars)")
+
+        # 2) details.png - best effort; may be blank if the window is minimised.
         if expanded and container is not None:
             try:
-                page.bring_to_front()          # focus tab (helps if minimised)
+                page.bring_to_front()
                 container.scroll_into_view_if_needed(timeout=5000)
                 page.wait_for_timeout(250)
-            except Exception:
-                pass
-            container.screenshot(path=str(folder / "details.png"))  # scroll-safe
-            log(f"    details.png captured (expanded after {clicks} click(s))")
-            return True
-        log("    DETAILS header found but its panel never opened; skipping "
-            "(no misleading screenshot saved)")
-        return False
+                container.screenshot(path=str(folder / "details.png"))
+                log(f"    details.png captured (expanded after {clicks} click(s))")
+            except Exception as exc:
+                log(f"    details.png skipped ({str(exc).splitlines()[0][:80]})")
+
+        if not wrote_txt:
+            log("    DETAILS section found but no text could be extracted")
+        return wrote_txt
     except Exception as exc:
         log(f"    DETAILS capture failed: {exc}")
         return False
@@ -931,6 +982,7 @@ def scrape_product(page, session, product, folder, args):
         f"Price: {price}\n"
         f"URL: {url}\n"
         f"Photos saved: {photos}\n"
+        f"Details section: {'saved to details.txt' if details_ok else 'not found'}\n"
         f"Scraped at: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n",
         encoding="utf-8")
     return {"name": name, "price": price, "photos": photos, "details": details_ok}
