@@ -63,36 +63,42 @@ jobs:
         if: always()
         run: |
           python - <<'EOF'
-          import os, subprocess, sys
+          import os, re, subprocess, sys
           dest = os.environ["DEST"].strip("/")
           base = os.path.join("out", dest)
           os.makedirs("zips", exist_ok=True)
           if not os.path.isdir(base):
               sys.exit(0)
-          folders = sorted((d for d in os.listdir(base) if d.isdigit()), key=int)
-          if not folders:
+          def leadnum(d):
+              m = re.match(r"(\d+)", d)
+              return int(m.group(1)) if m else None
+          entries = sorted(((leadnum(d), d) for d in os.listdir(base)
+                            if leadnum(d) is not None
+                            and os.path.isdir(os.path.join(base, d))))
+          if not entries:
               sys.exit(0)
-          def folder_size(f):
+          def folder_size(name):
+              p = os.path.join(base, name)
               return sum(os.path.getsize(os.path.join(r, x))
-                         for r, _, fs in os.walk(os.path.join(base, f)) for x in fs)
-          sizes = {f: folder_size(f) for f in folders}
+                         for r, _, fs in os.walk(p) for x in fs)
+          sizes = {name: folder_size(name) for _, name in entries}
           LIMIT = 85 * 1024 * 1024
           zips_dir = os.path.abspath("zips")
-          def zipit(name, fs):
+          def zipit(zipname, names):
               subprocess.check_call(
-                  ["zip", "-rq", os.path.join(zips_dir, name)]
-                  + [os.path.join(dest, f) for f in fs], cwd="out")
+                  ["zip", "-rq", os.path.join(zips_dir, zipname)]
+                  + [os.path.join(dest, n) for n in names], cwd="out")
           if sum(sizes.values()) <= LIMIT:
-              zipit("photos_all.zip", folders)
+              zipit("photos_all.zip", [n for _, n in entries])
           else:
               part, size = [], 0
-              for f in folders:
-                  if part and size + sizes[f] > LIMIT:
-                      zipit(f"photos_{part[0]}-{part[-1]}.zip", part)
+              for num, name in entries:
+                  if part and size + sizes[name] > LIMIT:
+                      zipit(f"photos_{part[0][0]}-{part[-1][0]}.zip", [n for _, n in part])
                       part, size = [], 0
-                  part.append(f); size += sizes[f]
+                  part.append((num, name)); size += sizes[name]
               if part:
-                  zipit(f"photos_{part[0]}-{part[-1]}.zip", part)
+                  zipit(f"photos_{part[0][0]}-{part[-1][0]}.zip", [n for _, n in part])
           print("zips:", os.listdir("zips"))
           EOF
 

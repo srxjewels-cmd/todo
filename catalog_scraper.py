@@ -302,6 +302,15 @@ def host_matches(netloc, patterns):
     return any(p in netloc for p in patterns)
 
 
+def sanitize_folder_name(name, max_len=70):
+    """Turn a product name into a safe folder name for Windows/macOS/Linux:
+    drop characters no filesystem allows, collapse whitespace, trim length,
+    and never end in a space or dot (Windows rejects those)."""
+    name = re.sub(r'[\\/:*?"<>|\r\n\t]+', " ", name or "")
+    name = re.sub(r"\s+", " ", name).strip().strip(".").strip()
+    return name[:max_len].rstrip(" .")
+
+
 def dismiss_overlays(page):
     """Close cookie banners / newsletter modals if they appear."""
     selectors = [
@@ -1059,12 +1068,9 @@ def run(args):
             for i, pr in enumerate(products, 1):
                 log(f"  {i:2d}. {pr['url']}")
 
-        # Create the full folder structure up front: <out>/1 ... <out>/N
-        for i in range(1, len(products) + 1):
-            (out_root / str(i)).mkdir(parents=True, exist_ok=True)
-
         for i, product in enumerate(products, 1):
             folder = out_root / str(i)
+            folder.mkdir(parents=True, exist_ok=True)
             log(f"\n[{i}/{len(products)}] {product['url']}")
             outcome = None
             for attempt in (1, 2):
@@ -1075,10 +1081,22 @@ def run(args):
                     log(f"    attempt {attempt} failed: {exc}")
                     if attempt == 1:
                         time.sleep(4)
+            # Rename "<n>" -> "<n>. <product name>" now that the name is known,
+            # so folders are self-describing and still sort in page order.
+            disp = ((outcome or {}).get("name") or product.get("tile_text") or "").strip()
+            clean = sanitize_folder_name(disp)
+            if clean:
+                target = out_root / f"{i}. {clean}"
+                try:
+                    if target != folder and not target.exists():
+                        folder.rename(target)
+                        folder = target
+                        log(f"    folder: {target.name}")
+                except OSError:
+                    pass
             if outcome is None:
-                results.append({"n": i, "name": product.get("tile_text") or product["url"],
-                                "price": "", "photos": 0, "details": False,
-                                "status": "FAILED"})
+                results.append({"n": i, "name": disp or product["url"], "price": "",
+                                "photos": 0, "details": False, "status": "FAILED"})
             else:
                 status = "OK" if outcome["photos"] and outcome["details"] else "PARTIAL"
                 results.append({"n": i, **outcome, "status": status})
