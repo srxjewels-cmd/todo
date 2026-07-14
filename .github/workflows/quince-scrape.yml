@@ -1,4 +1,4 @@
-name: Verify live site
+name: Verify currency live
 on:
   workflow_dispatch:
 permissions:
@@ -7,16 +7,21 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Check the live GitHub Pages site
+      - name: Wait for Pages to update, then check currency
         run: |
           SITE="https://srxjewels-cmd.github.io/todo/"
-          echo "== page =="
-          code=$(curl -sS -o /tmp/p.html -w '%{http_code}' -L --max-time 60 "$SITE" || echo ERR)
-          echo "HTTP $code, bytes=$(stat -c%s /tmp/p.html 2>/dev/null || echo 0)"
-          echo "has SRX DIAMONDS: $(grep -c 'SRX DIAMONDS' /tmp/p.html || echo 0)"
-          echo "product refs (photos/): $(grep -oc 'photos/' /tmp/p.html || echo 0)"
-          echo "== a product image (same-origin) =="
-          for img in photos/RE-01/1.jpg photos/B-01/1.jpg photos/N-01/1_t.jpg; do
-            c=$(curl -sS -o /tmp/i -w '%{http_code}' -L --max-time 60 "$SITE$img" || echo ERR)
-            echo "$img -> HTTP $c ($(file -b --mime-type /tmp/i 2>/dev/null), $(stat -c%s /tmp/i 2>/dev/null) bytes)"
+          for t in $(seq 1 12); do
+            curl -sS -o /tmp/p.html -L --max-time 40 "$SITE" || true
+            if grep -q 'id="curSel"' /tmp/p.html && grep -q 'api.country.is' /tmp/p.html; then
+              echo "CURRENCY LIVE after ${t} tries"
+              echo "curSel present: $(grep -c 'id=\"curSel\"' /tmp/p.html)"
+              echo "geo api: $(grep -c 'api.country.is' /tmp/p.html)"
+              echo "fx api:  $(grep -c 'open.er-api.com' /tmp/p.html)"
+              echo "PHP in menu: $(grep -oc 'PHP' /tmp/p.html)"
+              img=$(curl -sS -o /tmp/i -w '%{http_code}' -L --max-time 40 "${SITE}photos/RE-01/1.jpg")
+              echo "sample image: HTTP $img ($(file -b --mime-type /tmp/i))"
+              exit 0
+            fi
+            echo "try $t: not updated yet, waiting..."; sleep 12
           done
+          echo "TIMEOUT: currency markers not found on live site"; exit 1
