@@ -317,6 +317,11 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
   <div class="rule"></div>
   <p class="tag">Tap any piece to enquire — we reply on WhatsApp.</p>
   <div class="howto">See something you like? <b>Tap “Enquire on WhatsApp”</b> — the piece is filled in for you.</div>
+  <div style="text-align:center;margin:14px 0 0;font-size:.82rem;color:var(--muted)">
+    Prices in
+    <select id="curSel" aria-label="Currency" style="font:inherit;padding:5px 9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer"></select>
+    <span style="opacity:.8">· set to your country, converted from USD (approx.)</span>
+  </div>
 </header>
 <nav class="filters" aria-label="Filter by category"><div class="wrap" id="chips"></div></nav>
 <main class="wrap"><p class="count" id="count"></p><div class="grid" id="grid"></div></main>
@@ -340,9 +345,45 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
   var GEM = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M20 8h24l12 14-24 34L8 22z"/><path d="M8 22h48M20 8l4 14 8 34 8-34 4-14"/></svg>';
   var WA_ICON = '<svg viewBox="0 0 32 32" fill="currentColor"><path d="M16 3C9 3 3.5 8.5 3.5 15.5c0 2.4.7 4.6 1.9 6.6L3 29l7.1-2.3c1.9 1 4 1.6 6.3 1.6h.1c6.9 0 12.5-5.6 12.5-12.5S23 3 16 3zm0 22.7c-2 0-3.9-.5-5.5-1.5l-.4-.2-4.2 1.4 1.4-4.1-.3-.4a10 10 0 01-1.6-5.4C5.4 9.9 10.2 5.3 16 5.3s10.6 4.6 10.6 10.2S21.8 25.7 16 25.7zm5.8-7.6c-.3-.2-1.9-.9-2.2-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1a8.2 8.2 0 01-2.4-1.5 9 9 0 01-1.7-2.1c-.2-.3 0-.5.1-.7l.5-.6.3-.5c0-.2 0-.4 0-.6l-1-2.3c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.4-1.2 1.2-1.2 2.9s1.2 3.4 1.4 3.6c.2.2 2.5 3.8 6 5.3.8.4 1.5.6 2 .7.8.3 1.6.2 2.2.1.7-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5s-.3-.2-.6-.4z"/></svg>';
   function esc(s){return (s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+
+  /* ---- geo currency: detect country -> local currency, convert from USD ---- */
+  var FALLBACK={USD:1,PHP:58.5,INR:83.3,EUR:0.92,GBP:0.79,AED:3.67,CAD:1.37,AUD:1.53,
+    SGD:1.35,MYR:4.7,JPY:157,NZD:1.66,SAR:3.75,ZAR:18.5,THB:36,IDR:16200,VND:25400,
+    HKD:7.8,CNY:7.2,KRW:1370,BRL:5.4,MXN:18,CHF:0.89,SEK:10.6,PLN:4,QAR:3.64,KWD:0.31,
+    LKR:300,PKR:278,BDT:118,NGN:1600};
+  var CUR_BY_CC={US:"USD",PH:"PHP",IN:"INR",GB:"GBP",AE:"AED",CA:"CAD",AU:"AUD",NZ:"NZD",
+    SG:"SGD",MY:"MYR",JP:"JPY",SA:"SAR",ZA:"ZAR",TH:"THB",ID:"IDR",VN:"VND",HK:"HKD",
+    CN:"CNY",KR:"KRW",BR:"BRL",MX:"MXN",CH:"CHF",SE:"SEK",PL:"PLN",QA:"QAR",KW:"KWD",
+    LK:"LKR",PK:"PKR",BD:"BDT",NG:"NGN",
+    DE:"EUR",FR:"EUR",ES:"EUR",IT:"EUR",NL:"EUR",IE:"EUR",AT:"EUR",BE:"EUR",PT:"EUR",FI:"EUR",GR:"EUR"};
+  var MENU=["USD","PHP","INR","GBP","EUR","AED","CAD","AUD","SGD","MYR","JPY","SAR"];
+  var RATES=null, curCode=(localStorage.getItem("cur")||"USD");
+  function rate(){ return (RATES&&RATES[curCode])||FALLBACK[curCode]||1; }
+  function money(usd){
+    var v=usd*rate();
+    try{return new Intl.NumberFormat(undefined,{style:"currency",currency:curCode,
+      maximumFractionDigits:v>=100?0:2}).format(v);}
+    catch(e){return curCode+" "+(v>=100?Math.round(v):v.toFixed(2));}
+  }
+  function priceStr(p){ return (p.usd==null)?"Enquire":(p.from?"from ":"")+money(p.usd); }
+  function loadRates(cb){
+    var c=null; try{c=JSON.parse(localStorage.getItem("rates")||"null");}catch(e){}
+    if(c&&c.r&&(Date.now()-c.t<86400000)){ RATES=c.r; cb(); return; }
+    fetch("https://open.er-api.com/v6/latest/USD").then(function(r){return r.json();})
+      .then(function(d){ if(d&&d.rates){RATES=d.rates;
+        try{localStorage.setItem("rates",JSON.stringify({t:Date.now(),r:RATES}));}catch(e){}} cb(); })
+      .catch(function(){ cb(); });
+  }
+  function detectCurrency(){
+    if(localStorage.getItem("cur")) return;                 // user already chose
+    fetch("https://api.country.is/").then(function(r){return r.json();})
+      .then(function(d){ var c=CUR_BY_CC[d&&d.country]; if(c){curCode=c; syncSel(); render();} })
+      .catch(function(){});
+  }
+  function syncSel(){ var s=document.getElementById("curSel"); if(s) s.value=curCode; }
   function waLink(p){
     var msg = "Hello " + BRAND + "! I'm interested in this piece:\n• " + p.name +
-      (p.price_display ? " (" + (p.from?"from ":"") + p.price_display + ")" : "") +
+      (p.usd!=null ? " (" + priceStr(p) + (curCode!=="USD" ? " ≈ $"+p.usd : "") + ")" : "") +
       "\n• Ref: " + p.id + "\n\nIs it available?";
     return "https://wa.me/" + WHATSAPP + "?text=" + encodeURIComponent(msg);
   }
@@ -362,7 +403,7 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
     grid.innerHTML=items.map(function(p,i){
       return '<article class="card"><button class="thumb" data-i="'+PRODUCTS.indexOf(p)+'" aria-label="View '+esc(p.name)+'">'+thumb(p)+badge(p)+'</button>'+
         '<div class="body"><div class="eyebrow">'+esc(p.cat)+'</div><h3 class="name">'+esc(p.name)+'</h3>'+
-        '<div class="price">'+(p.from?'<span class="from">from</span>':'')+esc(p.price_display||"Enquire")+'</div>'+
+        '<div class="price">'+(p.usd!=null&&p.from?'<span class="from">from</span>':'')+esc(p.usd!=null?money(p.usd):"Enquire")+'</div>'+
         '<div class="spacer"></div><a class="wa" href="'+waLink(p)+'" target="_blank" rel="noopener">'+WA_ICON+'Enquire on WhatsApp</a></div></article>';
     }).join("");
   }
@@ -388,7 +429,7 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
     document.getElementById("lbNext").style.display=multi?"grid":"none";
     if(p.imgs&&p.imgs.length)lbShow(0);else document.getElementById("lbImg").innerHTML=thumb(p);
     document.getElementById("lbCat").textContent=p.cat;document.getElementById("lbName").textContent=p.name;
-    document.getElementById("lbPrice").textContent=(p.price_display?(p.from?"from ":"")+p.price_display:"Enquire for price");
+    document.getElementById("lbPrice").textContent=(p.usd!=null?(p.from?"from ":"")+money(p.usd):"Enquire for price");
     var d=document.getElementById("lbDetails");d.textContent=p.details||"";d.style.display=(p.details||"").trim()?"block":"none";
     var wa=document.getElementById("lbWa");wa.href=waLink(p);wa.innerHTML=WA_ICON+"Enquire about this piece";lb.setAttribute("open","");}
   document.getElementById("lbPrev").addEventListener("click",function(e){e.stopPropagation();lbShow(lbCur-1);});
@@ -409,7 +450,23 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
   lb.addEventListener("click",function(e){if(e.target===lb)lb.removeAttribute("open");});
   document.addEventListener("keydown",function(e){if(e.key==="Escape")lb.removeAttribute("open");});
   document.getElementById("footWa").href="https://wa.me/"+WHATSAPP+"?text="+encodeURIComponent("Hello "+BRAND+"! I have a question about your jewelry.");
-  render();
+  (function(){
+    var s=document.getElementById("curSel");
+    if(s){
+      s.innerHTML=MENU.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join("");
+      s.value=curCode;
+      s.addEventListener("change",function(){
+        curCode=s.value; try{localStorage.setItem("cur",curCode);}catch(e){}
+        render();
+        if(lb.hasAttribute("open")&&lbP){
+          document.getElementById("lbPrice").textContent=(lbP.usd!=null?(lbP.from?"from ":"")+money(lbP.usd):"Enquire for price");
+          document.getElementById("lbWa").href=waLink(lbP);
+        }
+      });
+    }
+    loadRates(function(){ syncSel(); render(); });
+    detectCurrency();
+  })();
 </script>
 """
 
@@ -417,7 +474,7 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
 def build_html(products, brand, whatsapp):
     payload = [{
         "id": p["id"], "cat": p["cat"], "name": p["name"],
-        "price_display": p["price_display"], "from": p["from"],
+        "price_display": p["price_display"], "from": p["from"], "usd": p.get("num"),
         "imgs": p["imgs"], "thumb": p.get("thumb", ""), "details": p["details"],
     } for p in products]
     return (TEMPLATE
