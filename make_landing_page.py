@@ -15,6 +15,10 @@ Run:         python make_landing_page.py "D:\quine p\prd"
 (defaults: brand SRX DIAMONDS, WhatsApp +91 9723891732 - override with --brand/--whatsapp)
 
 The page is written to <root>\index.html.
+
+[patched] Also supports folders where info.txt was renamed to the price
+(e.g. "$3,300.00.txt"): products are found by their photos, and any .txt file
+starting with "Product name:" is accepted as the info file.
 """
 
 import argparse
@@ -36,10 +40,26 @@ CARD_WIDTH = 640          # embedded image width in px (keeps the file small)
 JPEG_QUALITY = 72
 
 
-def read_info(folder):
-    name = price = url = ""
+def find_info_file(folder):
     info = folder / "info.txt"
     if info.exists():
+        return info
+    for f in sorted(folder.glob("*.txt")):
+        if f.name.lower() in SKIP_TXT:
+            continue
+        try:
+            head = f.read_text(encoding="utf-8", errors="ignore")[:200]
+        except Exception:
+            continue
+        if head.lower().lstrip().startswith("product name:"):
+            return f
+    return None
+
+
+def read_info(folder):
+    name = price = url = ""
+    info = find_info_file(folder)
+    if info is not None:
         for line in info.read_text(encoding="utf-8", errors="ignore").splitlines():
             low = line.lower()
             if low.startswith("product name:"):
@@ -62,17 +82,20 @@ def parse_price(s):
 
 
 def details_text(folder):
+    info = find_info_file(folder)
+    info_name = info.name.lower() if info is not None else ""
     for f in sorted(folder.glob("*.txt")):
-        if f.name.lower() not in SKIP_TXT:
-            try:
-                txt = f.read_text(encoding="utf-8", errors="ignore").strip()
-            except Exception:
-                return ""
-            # drop a leading header line that is just the section label
-            lines = txt.splitlines()
-            if lines and len(lines[0].split()) <= 3 and lines[0].isupper():
-                lines = lines[1:]
-            return "\n".join(l for l in lines if l.strip()).strip()
+        if f.name.lower() in SKIP_TXT or f.name.lower() == info_name:
+            continue
+        try:
+            txt = f.read_text(encoding="utf-8", errors="ignore").strip()
+        except Exception:
+            return ""
+        # drop a leading header line that is just the section label
+        lines = txt.splitlines()
+        if lines and len(lines[0].split()) <= 3 and lines[0].isupper():
+            lines = lines[1:]
+        return "\n".join(l for l in lines if l.strip()).strip()
     return ""
 
 
@@ -110,13 +133,18 @@ def strip_leading_number(name):
 
 def collect(root):
     products = []
-    for info in sorted(root.rglob("info.txt")):
-        folder = info.parent
-        if folder == root:
+    seen_folders = set()
+    # find product folders by their photos (works even if info.txt was renamed)
+    for photo in sorted(root.rglob("photo_*.jpg")) + sorted(root.rglob("photo_*.png")):
+        folder = photo.parent
+        if folder == root or folder in seen_folders:
             continue
+        seen_folders.add(folder)
         rel = folder.relative_to(root).parts
         category = rel[0] if len(rel) > 1 else "Jewelry"
         sub = rel[1] if len(rel) > 2 else ""
+        if sub.isdigit():
+            sub = ""
         cat_label = f"{category} · {sub}" if sub else category
         name, price, _url = read_info(folder)
         name = name or strip_leading_number(folder.name)
