@@ -1,6 +1,11 @@
 name: Build variant shop
 on:
   workflow_dispatch:
+    inputs:
+      scrape:
+        description: 'Re-scrape Quince from scratch (otherwise just rebuild the page from committed shopdata/variants.json, keeping existing photos)'
+        type: boolean
+        default: false
 permissions:
   contents: write
 jobs:
@@ -11,21 +16,31 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pip install --quiet requests pillow
-      - name: Scrape Quince variant catalog
+      - name: Scrape Quince (optional)
+        if: ${{ inputs.scrape }}
         run: python scrape_variants.py
       - name: Build shop page
-        run: python build_variant_shop.py shopdata/variants.json --out docs/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
-      - name: Report sizes
+        run: python build_variant_shop.py shopdata/variants.json --out /tmp/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
+      - name: Publish to shop-pages
         run: |
-          echo "photos: $(find docs/photos -type f 2>/dev/null | wc -l) files, $(du -sh docs/photos 2>/dev/null | cut -f1)"
-          echo "index.html: $(du -h docs/index.html | cut -f1)"
-      - name: Publish to shop-pages (clean tree)
-        run: |
-          touch docs/.nojekyll
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan pages-tmp
-          git rm -rf --cached . >/dev/null 2>&1 || true
-          git add -f docs
-          git commit -m "Rebuild variant shop (merged colours + carat/size options)"
-          git push -f origin pages-tmp:claude/shop-pages
+          if [ "${{ inputs.scrape }}" = "true" ]; then
+            # fresh photos in working tree -> replace the whole Pages branch
+            cp /tmp/index.html docs/index.html
+            touch docs/.nojekyll
+            git checkout --orphan pages-tmp
+            git rm -rf --cached . >/dev/null 2>&1 || true
+            git add -f docs
+            git commit -m "Rebuild variant shop (re-scraped)"
+            git push -f origin pages-tmp:claude/shop-pages
+          else
+            # rebuild page only; keep the photos already on the Pages branch
+            git fetch origin claude/shop-pages
+            git checkout -B shoppages origin/claude/shop-pages
+            cp /tmp/index.html docs/index.html
+            touch docs/.nojekyll
+            git add docs/index.html docs/.nojekyll
+            git commit -m "Rebuild shop page (variant UI update)"
+            git push origin shoppages:claude/shop-pages
+          fi

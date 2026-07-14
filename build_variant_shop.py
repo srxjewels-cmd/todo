@@ -162,12 +162,14 @@ chips.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b
 
 /* lightbox with variant selection */
 var lb=document.getElementById("lb"), lbP=null, lbSel={}, lbImgs=[], lbCur=0;
-function waLink(p,v){
-  var parts=[]; for(var k in v.sel) parts.push(k+": "+v.sel[k]);
+function waLink(p,sel,usd){
+  var parts=[]; for(var k in sel){ if(sel[k]) parts.push(k+": "+sel[k]); }
   var msg="Hello "+BRAND+"! I'm interested in this piece:\n• "+p.name+(parts.length?" ("+parts.join(", ")+")":"")+
-    (v.usd!=null?"\n• Price: "+money(v.usd)+(cur!=="USD"?" (approx, ≈ $"+v.usd+")":""):"")+"\n• Ref: "+p.id+"\n\nIs it available?";
+    (usd!=null?"\n• Price: "+money(usd)+(cur!=="USD"?" (approx, ≈ $"+usd+")":""):"")+"\n• Ref: "+p.id+"\n\nIs it available?";
   return "https://wa.me/"+WHATSAPP+"?text="+encodeURIComponent(msg);
 }
+function optIsFree(p,name){return !p.variants.some(function(v){return v.sel.hasOwnProperty(name);});}
+function boundSel(p,sel){var o={};for(var k in sel){if(sel[k]&&!optIsFree(p,k))o[k]=sel[k];}return o;}
 function showImg(i){if(!lbImgs.length)return;var n=lbImgs.length;lbCur=(i%n+n)%n;
   document.getElementById("lbImg").innerHTML='<img src="'+lbImgs[lbCur]+'" alt="">';
   [].forEach.call(document.getElementById("lbThumbs").children,function(t,j){if(j===lbCur)t.setAttribute("data-on","");else t.removeAttribute("data-on");});}
@@ -181,7 +183,8 @@ function applyVariant(){
   document.getElementById("lbNext").style.display=multi?"grid":"none";
   showImg(0);
   document.getElementById("lbPrice").textContent=(v.usd!=null?money(v.usd):"Enquire for price");
-  var wa=document.getElementById("lbWa");wa.href=waLink(lbP,v);wa.innerHTML=WA+"Enquire about this piece";
+  var msel={};for(var mk in v.sel)msel[mk]=v.sel[mk];for(var lk in lbSel)msel[lk]=lbSel[lk];
+  var wa=document.getElementById("lbWa");wa.href=waLink(lbP,msel,v.usd);wa.innerHTML=WA+"Enquire about this piece";
 }
 function hasVariant(p,sel){return p.variants.some(function(v){for(var k in sel)if(v.sel[k]!==sel[k])return false;return true;});}
 function buildOpts(){
@@ -190,9 +193,10 @@ function buildOpts(){
     var row=document.createElement("div");row.className="optrow";
     var lab=document.createElement("div");lab.className="lab";lab.innerHTML=o.name+"<b>"+esc(lbSel[o.name]||"")+"</b>";row.appendChild(lab);
     var wrap=document.createElement("div");wrap.className=(o.type==="swatch"?"bigsw":"opts");
+    var free=optIsFree(lbP,o.name);
     o.values.forEach(function(x){
-      var test={};for(var k in lbSel)test[k]=lbSel[k];test[o.name]=x.label;
-      var avail=hasVariant(lbP,test);
+      var avail=true;
+      if(!free){var test=boundSel(lbP,lbSel);test[o.name]=x.label;avail=hasVariant(lbP,test);}
       var el;
       if(o.type==="swatch"){el=document.createElement("span");el.className="swatch";el.title=x.label;el.style.background=x.hex||"#ccc";}
       else{el=document.createElement("button");el.className="opt";el.textContent=x.label;}
@@ -200,8 +204,12 @@ function buildOpts(){
       if(!avail&&o.type!=="swatch")el.setAttribute("disabled","");
       el.addEventListener("click",function(){
         lbSel[o.name]=x.label;
-        // if combo invalid, relax other non-color options to the variant's values
-        if(!hasVariant(lbP,lbSel)){var v=matchVar(lbP,lbSel);lbSel={};for(var k in v.sel)lbSel[k]=v.sel[k];}
+        // if combo invalid, snap to a real variant but keep free-option picks (e.g. Size)
+        if(!free&&!hasVariant(lbP,boundSel(lbP,lbSel))){
+          var keep={};(lbP.options||[]).forEach(function(oo){if(optIsFree(lbP,oo.name)&&lbSel[oo.name])keep[oo.name]=lbSel[oo.name];});
+          var v=matchVar(lbP,lbSel);lbSel={};for(var k in v.sel)lbSel[k]=v.sel[k];
+          for(var fk in keep)lbSel[fk]=keep[fk];
+        }
         buildOpts();applyVariant();
       });
       wrap.appendChild(el);
@@ -225,7 +233,7 @@ document.getElementById("lbThumbs").addEventListener("click",function(e){var t=e
 document.addEventListener("keydown",function(e){if(!lb.hasAttribute("open"))return;if(e.key==="ArrowRight")showImg(lbCur+1);if(e.key==="ArrowLeft")showImg(lbCur-1);if(e.key==="Escape")lb.removeAttribute("open");});
 grid.addEventListener("click",function(e){
   var wa=e.target.closest("a.wa[data-i]");
-  if(wa){e.preventDefault();var p=PRODUCTS[+wa.dataset.i];window.open(waLink(p,firstVar(p)),"_blank");return;}
+  if(wa){e.preventDefault();var p=PRODUCTS[+wa.dataset.i];var fv=firstVar(p);window.open(waLink(p,fv.sel,fv.usd),"_blank");return;}
   var t=e.target.closest(".thumb");if(t)openLb(PRODUCTS[+t.dataset.i]);
 });
 document.getElementById("lbClose").addEventListener("click",function(){lb.removeAttribute("open");});
