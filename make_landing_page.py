@@ -99,13 +99,21 @@ def details_text(folder):
     return ""
 
 
-def first_photo(folder):
-    photos = sorted(folder.glob("photo_*.jpg")) or sorted(folder.glob("photo_*.png")) \
-        or sorted(folder.glob("*.jpg")) or sorted(folder.glob("*.png"))
-    return photos[0] if photos else None
+def _photo_key(p):
+    m = re.search(r"(\d+)", p.stem)
+    return (0, int(m.group(1))) if m else (1, p.name)
 
 
-def embed_image(path):
+def all_photos(folder, cap):
+    pics = sorted(folder.glob("photo_*.jpg"), key=_photo_key) \
+        + sorted(folder.glob("photo_*.png"), key=_photo_key)
+    if not pics:
+        pics = [f for f in sorted(folder.glob("*.jpg")) + sorted(folder.glob("*.png"))
+                if not f.name.lower().startswith("details")]
+    return pics[:cap]
+
+
+def embed_image(path, width=CARD_WIDTH, quality=JPEG_QUALITY):
     if path is None:
         return ""
     try:
@@ -117,10 +125,10 @@ def embed_image(path):
             with Image.open(io.BytesIO(data)) as im:
                 im = im.convert("RGB")
                 w, h = im.size
-                if w > CARD_WIDTH:
-                    im = im.resize((CARD_WIDTH, round(h * CARD_WIDTH / w)))
+                if w > width:
+                    im = im.resize((width, round(h * width / w)))
                 buf = io.BytesIO()
-                im.save(buf, "JPEG", quality=JPEG_QUALITY, optimize=True)
+                im.save(buf, "JPEG", quality=quality, optimize=True)
                 data = buf.getvalue()
         except Exception:
             pass
@@ -131,7 +139,7 @@ def strip_leading_number(name):
     return re.sub(r"^\s*\d+\s*[.\-)]\s*", "", name).strip()
 
 
-def collect(root):
+def collect(root, max_photos=8):
     products = []
     seen_folders = set()
     # find product folders by their photos (works even if info.txt was renamed)
@@ -148,13 +156,17 @@ def collect(root):
         cat_label = f"{category} · {sub}" if sub else category
         name, price, _url = read_info(folder)
         name = name or strip_leading_number(folder.name)
+        pics = all_photos(folder, max_photos)
+        imgs = [embed_image(pics[0])] if pics else []
+        imgs += [embed_image(x, width=560, quality=62) for x in pics[1:]]
+        imgs = [u for u in imgs if u]
         products.append({
             "cat": cat_label,
             "name": name,
             "price": price or "",
             "from": price.lower().startswith("from") if price else False,
             "num": parse_price(price),
-            "img": embed_image(first_photo(folder)),
+            "imgs": imgs,
             "details": details_text(folder),
         })
     # stable ids + sort each category by price low->high
@@ -252,6 +264,16 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
     border-top:1px solid var(--line); padding-top:12px}
   .close{position:absolute; top:10px; right:10px; z-index:2; width:34px; height:34px; border-radius:999px;
     border:0; background:rgba(0,0,0,.45); color:#fff; font-size:1.1rem; cursor:pointer; line-height:1}
+  .nph{position:absolute; left:10px; bottom:10px; background:rgba(0,0,0,.5); color:#fff;
+    font-size:.68rem; padding:3px 9px; border-radius:999px; pointer-events:none}
+  .nav{position:absolute; top:50%; transform:translateY(-50%); z-index:2; width:36px; height:36px;
+    border-radius:999px; border:0; background:rgba(0,0,0,.45); color:#fff; font-size:1.15rem;
+    cursor:pointer; display:grid; place-items:center}
+  .nav.prev{left:10px} .nav.next{right:10px}
+  .lb-thumbs{display:flex; gap:6px; padding:10px 12px 0; overflow-x:auto; background:var(--surface)}
+  .lb-thumbs img{width:52px; height:52px; object-fit:cover; border-radius:8px; opacity:.55;
+    cursor:pointer; border:2px solid transparent; flex:0 0 auto}
+  .lb-thumbs img[data-on]{opacity:1; border-color:var(--gold)}
   footer{border-top:1px solid var(--line); padding:26px 20px 40px; text-align:center; color:var(--muted); font-size:.85rem}
   footer .brand-sm{font-family:Georgia,serif; color:var(--ink); font-size:1.1rem}
   footer a{color:var(--gold); text-decoration:none}
@@ -267,7 +289,11 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
 <nav class="filters" aria-label="Filter by category"><div class="wrap" id="chips"></div></nav>
 <main class="wrap"><p class="count" id="count"></p><div class="grid" id="grid"></div></main>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Product details">
-  <div class="lb-card"><div class="lb-img"><button class="close" id="lbClose" aria-label="Close">✕</button><div id="lbImg"></div></div>
+  <div class="lb-card"><div class="lb-img"><button class="close" id="lbClose" aria-label="Close">✕</button>
+      <button class="nav prev" id="lbPrev" aria-label="Previous photo">‹</button>
+      <button class="nav next" id="lbNext" aria-label="Next photo">›</button>
+      <div id="lbImg"></div></div>
+    <div class="lb-thumbs" id="lbThumbs"></div>
     <div class="lb-body"><div class="eyebrow" id="lbCat"></div><h3 id="lbName"></h3>
       <p class="lb-price" id="lbPrice"></p><p class="lb-details" id="lbDetails"></p>
       <a class="wa" id="lbWa" href="#" target="_blank" rel="noopener"></a></div></div>
@@ -289,8 +315,12 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
     return "https://wa.me/" + WHATSAPP + "?text=" + encodeURIComponent(msg);
   }
   function thumb(p){
-    return p.img ? '<img loading="lazy" src="'+p.img+'" alt="'+esc(p.name)+'">'
-                 : '<span class="ph">'+GEM+'</span>';
+    return (p.imgs && p.imgs.length)
+      ? '<img loading="lazy" src="'+p.imgs[0]+'" alt="'+esc(p.name)+'">'
+      : '<span class="ph">'+GEM+'</span>';
+  }
+  function badge(p){
+    return (p.imgs && p.imgs.length>1) ? '<span class="nph">'+p.imgs.length+' photos</span>' : '';
   }
   var grid=document.getElementById("grid"), active="All";
   var cats=["All"].concat(PRODUCTS.map(function(p){return p.cat;}).filter(function(v,i,a){return a.indexOf(v)===i;}));
@@ -298,7 +328,7 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
     var items=PRODUCTS.filter(function(p){return active==="All"||p.cat===active;});
     document.getElementById("count").textContent=items.length+" piece"+(items.length===1?"":"s");
     grid.innerHTML=items.map(function(p,i){
-      return '<article class="card"><button class="thumb" data-i="'+PRODUCTS.indexOf(p)+'" aria-label="View '+esc(p.name)+'">'+thumb(p)+'</button>'+
+      return '<article class="card"><button class="thumb" data-i="'+PRODUCTS.indexOf(p)+'" aria-label="View '+esc(p.name)+'">'+thumb(p)+badge(p)+'</button>'+
         '<div class="body"><div class="eyebrow">'+esc(p.cat)+'</div><h3 class="name">'+esc(p.name)+'</h3>'+
         '<div class="price">'+(p.from?'<span class="from">from</span>':'')+esc(p.price_display||"Enquire")+'</div>'+
         '<div class="spacer"></div><a class="wa" href="'+waLink(p)+'" target="_blank" rel="noopener">'+WA_ICON+'Enquire on WhatsApp</a></div></article>';
@@ -308,12 +338,40 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
   chips.innerHTML=cats.map(function(c){return '<button class="chip" aria-pressed="'+(c==="All")+'" data-cat="'+esc(c)+'">'+esc(c)+'</button>';}).join("");
   chips.addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b)return;active=b.dataset.cat;
     [].forEach.call(chips.children,function(c){c.setAttribute("aria-pressed",c===b);});render();});
-  var lb=document.getElementById("lb");
-  function openLb(p){document.getElementById("lbImg").innerHTML=thumb(p);
+  var lb=document.getElementById("lb"), lbP=null, lbCur=0;
+  function lbShow(i){
+    if(!lbP||!lbP.imgs||!lbP.imgs.length)return;
+    var n=lbP.imgs.length; lbCur=(i%n+n)%n;
+    document.getElementById("lbImg").innerHTML='<img src="'+lbP.imgs[lbCur]+'" alt="'+esc(lbP.name)+'">';
+    [].forEach.call(document.getElementById("lbThumbs").children,function(t,j){
+      if(j===lbCur)t.setAttribute("data-on","");else t.removeAttribute("data-on");});
+  }
+  function openLb(p){
+    lbP=p; lbCur=0;
+    var multi=p.imgs&&p.imgs.length>1;
+    var strip=document.getElementById("lbThumbs");
+    strip.innerHTML=multi?p.imgs.map(function(u,j){return '<img src="'+u+'" data-j="'+j+'" alt="">';}).join(""):"";
+    strip.style.display=multi?"flex":"none";
+    document.getElementById("lbPrev").style.display=multi?"grid":"none";
+    document.getElementById("lbNext").style.display=multi?"grid":"none";
+    if(p.imgs&&p.imgs.length)lbShow(0);else document.getElementById("lbImg").innerHTML=thumb(p);
     document.getElementById("lbCat").textContent=p.cat;document.getElementById("lbName").textContent=p.name;
     document.getElementById("lbPrice").textContent=(p.price_display?(p.from?"from ":"")+p.price_display:"Enquire for price");
-    document.getElementById("lbDetails").textContent=p.details||"";
+    var d=document.getElementById("lbDetails");d.textContent=p.details||"";d.style.display=(p.details||"").trim()?"block":"none";
     var wa=document.getElementById("lbWa");wa.href=waLink(p);wa.innerHTML=WA_ICON+"Enquire about this piece";lb.setAttribute("open","");}
+  document.getElementById("lbPrev").addEventListener("click",function(e){e.stopPropagation();lbShow(lbCur-1);});
+  document.getElementById("lbNext").addEventListener("click",function(e){e.stopPropagation();lbShow(lbCur+1);});
+  document.getElementById("lbThumbs").addEventListener("click",function(e){
+    var t=e.target.closest("img[data-j]");if(t)lbShow(+t.dataset.j);});
+  (function(){var x0=null;var im=document.getElementById("lbImg");
+    im.addEventListener("touchstart",function(e){x0=e.touches[0].clientX;},{passive:true});
+    im.addEventListener("touchend",function(e){if(x0===null)return;
+      var dx=e.changedTouches[0].clientX-x0;x0=null;
+      if(Math.abs(dx)>40)lbShow(lbCur+(dx<0?1:-1));},{passive:true});})();
+  document.addEventListener("keydown",function(e){
+    if(!lb.hasAttribute("open"))return;
+    if(e.key==="ArrowRight")lbShow(lbCur+1);
+    if(e.key==="ArrowLeft")lbShow(lbCur-1);});
   grid.addEventListener("click",function(e){var t=e.target.closest(".thumb");if(!t)return;openLb(PRODUCTS[+t.dataset.i]);});
   document.getElementById("lbClose").addEventListener("click",function(){lb.removeAttribute("open");});
   lb.addEventListener("click",function(e){if(e.target===lb)lb.removeAttribute("open");});
@@ -328,7 +386,7 @@ def build_html(products, brand, whatsapp):
     payload = [{
         "id": p["id"], "cat": p["cat"], "name": p["name"],
         "price_display": p["price_display"], "from": p["from"],
-        "img": p["img"], "details": p["details"],
+        "imgs": p["imgs"], "details": p["details"],
     } for p in products]
     return (TEMPLATE
             .replace("__PRODUCTS__", json.dumps(payload, ensure_ascii=False))
@@ -343,6 +401,8 @@ def main(argv=None):
                     help="your WhatsApp number, country code + digits, e.g. 9198XXXXXXXX")
     ap.add_argument("--brand", default="SRX DIAMONDS")
     ap.add_argument("--out", default="", help="output html path (default <root>\\index.html)")
+    ap.add_argument("--max-photos-per-product", type=int, default=8,
+                    help="cap on embedded photos per product (default 8)")
     args = ap.parse_args(argv)
 
     root = Path(args.root)
@@ -357,7 +417,7 @@ def main(argv=None):
               "Building with a placeholder for now.\n")
 
     print(f"Scanning {root} ...")
-    products = collect(root)
+    products = collect(root, max_photos=args.max_photos_per_product)
     if not products:
         print("No products found (need subfolders with info.txt / photos).")
         return 1
@@ -366,8 +426,14 @@ def main(argv=None):
     out.write_text(html_out, encoding="utf-8")
     mb = out.stat().st_size / 1048576
     cats = sorted({p["cat"] for p in products})
-    print(f"\nDone: {len(products)} products across {len(cats)} categories.")
+    total_imgs = sum(len(p["imgs"]) for p in products)
+    nodet = [p["name"] for p in products if not (p["details"] or "").strip()]
+    print(f"\nDone: {len(products)} products across {len(cats)} categories "
+          f"({total_imgs} photos embedded).")
     print("Categories: " + ", ".join(cats))
+    if nodet:
+        print(f"Products with no details text ({len(nodet)}): "
+              + ", ".join(nodet[:8]) + (" ..." if len(nodet) > 8 else ""))
     print(f"Page written to: {out}  ({mb:.1f} MB)")
     print("\nOpen it to preview. To use as a bio link, upload index.html to any "
           "free host\n(e.g. drag it onto https://app.netlify.com/drop) and put "
