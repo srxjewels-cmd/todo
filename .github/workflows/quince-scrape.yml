@@ -1,127 +1,140 @@
-name: Catalog scrape
+name: Shop images self-host
 
-# Runs catalog_scraper.py against any category/listing URL on a GitHub-hosted
-# runner (which has normal internet access, unlike the restricted Claude Code
-# cloud sandbox). Output is uploaded as an artifact and force-pushed to a
-# results branch, packaged into direct-download zips (split into parts when
-# needed to stay under GitHub's 100 MB per-file limit).
-#
-# Run it from the Actions tab ("Run workflow") or ask Claude to dispatch it.
+# Re-fetches every product photo listed in shopdata/products.json from its
+# source CDN (the runner can reach it), resizes to a full-res + a thumb,
+# commits them into docs/photos/, then builds docs/index.html referencing the
+# images through jsDelivr (which serves repo files with hotlink-friendly CORS,
+# unlike the source CDN). Result: a self-hosted shop whose photos actually
+# display anywhere. Run from the Actions tab.
 
 on:
   workflow_dispatch:
     inputs:
-      category_url:
-        description: 'Category/listing or product page URL'
-        required: true
-        default: 'https://www.quince.com/women/jewelry/necklaces-all/lab-grown-diamond-necklaces'
-      limit:
-        description: 'Number of products to scrape'
-        required: false
-        default: '15'
-      dest:
-        description: 'Folder structure inside the output/zips'
-        required: false
-        default: 'jewels/neckless/1'
       results_branch:
-        description: 'Branch to publish results to'
+        description: 'Branch to publish the built shop to'
         required: false
-        default: 'claude/scrape-results'
+        default: 'claude/shop-pages'
 
 permissions:
   contents: write
 
 concurrency:
-  group: catalog-scrape-${{ inputs.results_branch }}
+  group: shop-images
   cancel-in-progress: false
 
 jobs:
-  scrape:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
-      URL: ${{ inputs.category_url }}
-      LIMIT: ${{ inputs.limit }}
-      DEST: ${{ inputs.dest }}
       RBRANCH: ${{ inputs.results_branch }}
+      REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install deps
+        run: python -m pip install --quiet requests pillow
 
-      - name: Install dependencies
+      - name: Download + resize all photos
         run: |
-          python -m pip install --quiet playwright requests pillow
-          python -m playwright install --with-deps chromium
+          python - <<'PY'
+          import os, io, json, re, time, pathlib, requests
+          from PIL import Image
+          data = json.load(open("shopdata/products.json", encoding="utf-8"))
+          root = pathlib.Path("docs/photos"); root.mkdir(parents=True, exist_ok=True)
+          sess = requests.Session()
+          sess.headers.update({
+              "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                             "(KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"),
+              "Referer": "https://www.quince.com/", "Accept": "image/avif,image/webp,*/*"})
+          def fetch(u):
+              for attempt in (1, 2, 3):
+                  try:
+                      r = sess.get(u, timeout=45)
+                      if r.ok and r.content:
+                          return r.content
+                  except requests.RequestException:
+                      pass
+                  time.sleep(1.5 * attempt)
+              return None
+          def save(data_bytes, path, maxw, q):
+              try:
+                  im = Image.open(io.BytesIO(data_bytes)).convert("RGB")
+              except Exception:
+                  return False
+              w, h = im.size
+              if w > maxw:
+                  im = im.resize((maxw, round(h * maxw / w)))
+              im.save(path, "JPEG", quality=q, optimize=True)
+              return True
+          ok = miss = 0
+          for p in data:
+              d = root / p["id"]; d.mkdir(parents=True, exist_ok=True)
+              kept = []
+              for i, u in enumerate(p.get("src_imgs", []), 1):
+                  raw = fetch(u)
+                  if not raw:
+                      miss += 1; continue
+                  full = d / f"{i}.jpg"; thumb = d / f"{i}_t.jpg"
+                  if save(raw, full, 1600, 85):
+                      save(raw, thumb, 700, 78)
+                      kept.append(i); ok += 1
+                  else:
+                      miss += 1
+              p["_kept"] = kept
+          json.dump(data, open("shopdata/products.built.json", "w", encoding="utf-8"),
+                    ensure_ascii=False)
+          print(f"downloaded {ok} images, {miss} missed")
+          PY
 
-      - name: Run scraper
-        run: python catalog_scraper.py --headless --category-url "$URL" --limit "$LIMIT" --out "out/$DEST" 2>&1 | tee run.log
-
-      - name: Package zips
-        if: always()
+      - name: Commit photos (get SHA for jsDelivr)
+        id: photos
         run: |
-          python - <<'EOF'
-          import os, re, subprocess, sys
-          dest = os.environ["DEST"].strip("/")
-          base = os.path.join("out", dest)
-          os.makedirs("zips", exist_ok=True)
-          if not os.path.isdir(base):
-              sys.exit(0)
-          def leadnum(d):
-              m = re.match(r"(\d+)", d)
-              return int(m.group(1)) if m else None
-          entries = sorted(((leadnum(d), d) for d in os.listdir(base)
-                            if leadnum(d) is not None
-                            and os.path.isdir(os.path.join(base, d))))
-          if not entries:
-              sys.exit(0)
-          def folder_size(name):
-              p = os.path.join(base, name)
-              return sum(os.path.getsize(os.path.join(r, x))
-                         for r, _, fs in os.walk(p) for x in fs)
-          sizes = {name: folder_size(name) for _, name in entries}
-          LIMIT = 85 * 1024 * 1024
-          zips_dir = os.path.abspath("zips")
-          def zipit(zipname, names):
-              subprocess.check_call(
-                  ["zip", "-rq", os.path.join(zips_dir, zipname)]
-                  + [os.path.join(dest, n) for n in names], cwd="out")
-          if sum(sizes.values()) <= LIMIT:
-              zipit("photos_all.zip", [n for _, n in entries])
-          else:
-              part, size = [], 0
-              for num, name in entries:
-                  if part and size + sizes[name] > LIMIT:
-                      zipit(f"photos_{part[0][0]}-{part[-1][0]}.zip", [n for _, n in part])
-                      part, size = [], 0
-                  part.append((num, name)); size += sizes[name]
-              if part:
-                  zipit(f"photos_{part[0][0]}-{part[-1][0]}.zip", [n for _, n in part])
-          print("zips:", os.listdir("zips"))
-          EOF
-
-      - name: Upload output as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: catalog-scrape-output
-          path: |
-            out/
-            zips/
-            run.log
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Push results branch
-        if: always()
-        run: |
-          mkdir -p out zips
-          touch -a run.log
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch --orphan "$RBRANCH"
-          git add -f out zips run.log
-          git commit -m "Scrape results: $URL ($(date -u +'%Y-%m-%d %H:%M UTC'))"
-          git push -f origin "$RBRANCH"
+          git add -f docs/photos shopdata/products.built.json
+          git commit -q -m "Shop photos (self-hosted assets)"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build index.html with jsDelivr URLs
+        env:
+          PHOTOS_SHA: ${{ steps.photos.outputs.sha }}
+        run: |
+          python - <<'PY'
+          import os, json, html, importlib.util
+          repo = os.environ["REPO"]; sha = os.environ["PHOTOS_SHA"]
+          base = f"https://cdn.jsdelivr.net/gh/{repo}@{sha}/docs/photos"
+          data = json.load(open("shopdata/products.built.json", encoding="utf-8"))
+          RENAME = {"BRACELETES":"Bracelets","earings":"Earrings","neckless":"Necklaces",
+                    "Rings · Engagement Ring":"Engagement Rings","Rings · Others":"Rings"}
+          ORDER = ["Engagement Rings","Rings","Necklaces","Earrings","Bracelets"]
+          for i,x in enumerate(data):
+              x["cat"] = RENAME.get(x["cat"], x["cat"]); x["_i"]=i
+          data.sort(key=lambda x:(ORDER.index(x["cat"]) if x["cat"] in ORDER else 99, x["_i"]))
+          spec = importlib.util.spec_from_file_location("mlp","make_landing_page.py")
+          mlp = importlib.util.module_from_spec(spec); spec.loader.exec_module(mlp)
+          payload = []
+          for p in data:
+              kept = p.get("_kept", [])
+              imgs = [f"{base}/{p['id']}/{n}.jpg" for n in kept]
+              thumb = f"{base}/{p['id']}/{kept[0]}_t.jpg" if kept else ""
+              payload.append({"id":p["id"],"cat":p["cat"],"name":p["name"],
+                              "price_display":p.get("price_display",""),"from":p.get("from",False),
+                              "imgs":imgs,"thumb":thumb,"details":p.get("details","")})
+          out = (mlp.TEMPLATE
+                 .replace("__PRODUCTS__", json.dumps(payload, ensure_ascii=False))
+                 .replace("__WHATSAPP__", "919723891732")
+                 .replace("__BRAND__", html.escape("SRX DIAMONDS")))
+          open("docs/index.html","w",encoding="utf-8").write(out)
+          n_imgs = sum(len(p["imgs"]) for p in payload)
+          print(f"built index.html: {len(payload)} products, {n_imgs} images via jsDelivr")
+          PY
+
+      - name: Publish results branch
+        run: |
+          git add -f docs/index.html
+          git commit -q -m "Shop index.html (jsDelivr-hosted photos)"
+          git push -f origin HEAD:"$RBRANCH"
+          echo "pushed to $RBRANCH"
