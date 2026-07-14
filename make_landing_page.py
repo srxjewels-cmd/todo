@@ -139,6 +139,28 @@ def strip_leading_number(name):
     return re.sub(r"^\s*\d+\s*[.\-)]\s*", "", name).strip()
 
 
+def read_photo_urls(folder):
+    """Original CDN URLs the scraper saved, in order (full resolution)."""
+    f = folder / "photo_urls.txt"
+    urls = []
+    if f.exists():
+        for line in f.read_text(encoding="utf-8", errors="ignore").splitlines():
+            cand = line.split("\t")[-1].strip()
+            if cand.startswith("http"):
+                urls.append(cand)
+    return urls
+
+
+def sized_url(u, w):
+    """A smaller variant for grid thumbnails on hosts that support resizing;
+    the full-resolution original is always kept for the zoom view."""
+    if "images.quince.com" in u or "ctfassets" in u or "imgix" in u:
+        return u + ("&" if "?" in u else "?") + f"w={w}&q=80"
+    if "cdn.shopify.com" in u:
+        return re.sub(r"(\.[A-Za-z]+)(\?|$)", rf"_{w}x\1\2", u, count=1)
+    return u
+
+
 def collect(root, max_photos=8):
     products = []
     seen_folders = set()
@@ -156,10 +178,18 @@ def collect(root, max_photos=8):
         cat_label = f"{category} · {sub}" if sub else category
         name, price, _url = read_info(folder)
         name = name or strip_leading_number(folder.name)
-        pics = all_photos(folder, max_photos)
-        imgs = [embed_image(pics[0])] if pics else []
-        imgs += [embed_image(x, width=560, quality=62) for x in pics[1:]]
-        imgs = [u for u in imgs if u]
+        remote = read_photo_urls(folder)[:max_photos]
+        if remote:
+            imgs = remote                      # full-resolution originals
+            thumb = sized_url(remote[0], 700)  # fast, sharp grid image
+            src = "url"
+        else:
+            pics = all_photos(folder, max_photos)
+            imgs = [embed_image(pics[0])] if pics else []
+            imgs += [embed_image(x, width=560, quality=62) for x in pics[1:]]
+            imgs = [u for u in imgs if u]
+            thumb = imgs[0] if imgs else ""
+            src = "embed"
         products.append({
             "cat": cat_label,
             "name": name,
@@ -167,6 +197,8 @@ def collect(root, max_photos=8):
             "from": price.lower().startswith("from") if price else False,
             "num": parse_price(price),
             "imgs": imgs,
+            "thumb": thumb,
+            "src": src,
             "details": details_text(folder),
         })
     # stable ids + sort each category by price low->high
@@ -315,9 +347,9 @@ TEMPLATE = r"""<title>__BRAND__ — Shop via WhatsApp</title>
     return "https://wa.me/" + WHATSAPP + "?text=" + encodeURIComponent(msg);
   }
   function thumb(p){
-    return (p.imgs && p.imgs.length)
-      ? '<img loading="lazy" src="'+p.imgs[0]+'" alt="'+esc(p.name)+'">'
-      : '<span class="ph">'+GEM+'</span>';
+    var src = p.thumb || (p.imgs && p.imgs[0]);
+    return src ? '<img loading="lazy" src="'+src+'" alt="'+esc(p.name)+'">'
+               : '<span class="ph">'+GEM+'</span>';
   }
   function badge(p){
     return (p.imgs && p.imgs.length>1) ? '<span class="nph">'+p.imgs.length+' photos</span>' : '';
@@ -386,7 +418,7 @@ def build_html(products, brand, whatsapp):
     payload = [{
         "id": p["id"], "cat": p["cat"], "name": p["name"],
         "price_display": p["price_display"], "from": p["from"],
-        "imgs": p["imgs"], "details": p["details"],
+        "imgs": p["imgs"], "thumb": p.get("thumb", ""), "details": p["details"],
     } for p in products]
     return (TEMPLATE
             .replace("__PRODUCTS__", json.dumps(payload, ensure_ascii=False))
@@ -427,6 +459,9 @@ def main(argv=None):
     mb = out.stat().st_size / 1048576
     cats = sorted({p["cat"] for p in products})
     total_imgs = sum(len(p["imgs"]) for p in products)
+    remote_n = sum(1 for p in products if p.get("src") == "url")
+    print(f"Full-resolution (CDN link) products: {remote_n}/{len(products)}; "
+          f"embedded (no photo_urls.txt): {len(products)-remote_n}")
     nodet = [p["name"] for p in products if not (p["details"] or "").strip()]
     print(f"\nDone: {len(products)} products across {len(cats)} categories "
           f"({total_imgs} photos embedded).")
