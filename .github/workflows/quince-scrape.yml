@@ -1,32 +1,22 @@
-name: Deploy shop to Pages
+name: Verify live site
 on:
   workflow_dispatch:
 permissions:
   contents: read
-  pages: write
-  id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: false
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: claude/shop-pages
-      - name: Use same-origin relative image paths
+      - name: Check the live GitHub Pages site
         run: |
-          sed -i -E 's#https://cdn\.jsdelivr\.net/gh/[^/]+/[^@]+@[a-f0-9]+/docs/photos#photos#g' docs/index.html
-          echo "sample refs:"; grep -oE 'photos/[A-Z]+-01/1\.jpg' docs/index.html | sort -u | head
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          SITE="https://srxjewels-cmd.github.io/todo/"
+          echo "== page =="
+          code=$(curl -sS -o /tmp/p.html -w '%{http_code}' -L --max-time 60 "$SITE" || echo ERR)
+          echo "HTTP $code, bytes=$(stat -c%s /tmp/p.html 2>/dev/null || echo 0)"
+          echo "has SRX DIAMONDS: $(grep -c 'SRX DIAMONDS' /tmp/p.html || echo 0)"
+          echo "product refs (photos/): $(grep -oc 'photos/' /tmp/p.html || echo 0)"
+          echo "== a product image (same-origin) =="
+          for img in photos/RE-01/1.jpg photos/B-01/1.jpg photos/N-01/1_t.jpg; do
+            c=$(curl -sS -o /tmp/i -w '%{http_code}' -L --max-time 60 "$SITE$img" || echo ERR)
+            echo "$img -> HTTP $c ($(file -b --mime-type /tmp/i 2>/dev/null), $(stat -c%s /tmp/i 2>/dev/null) bytes)"
+          done
