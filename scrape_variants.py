@@ -128,8 +128,15 @@ def vprice(v):
     return pr.get("amount") if isinstance(pr, dict) else pr
 
 
+def product_url(slug):
+    slug = slug.lstrip("/")
+    if slug.startswith(("women/", "men/")):
+        return "https://www.quince.com/" + slug
+    return "https://www.quince.com/women/" + slug
+
+
 def scrape_product(slug):
-    h = get("https://www.quince.com/women/" + slug)
+    h = get(product_url(slug))
     d = next_data(h)
     if not d:
         return None
