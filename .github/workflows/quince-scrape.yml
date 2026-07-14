@@ -2,30 +2,68 @@ name: Build variant shop
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  build:
+  probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: pip install --quiet requests pillow
-      - name: Scrape Quince variant catalog
-        run: python scrape_variants.py
-      - name: Build shop page
-        run: python build_variant_shop.py shopdata/variants.json --out docs/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
-      - name: Report sizes
+      - run: pip install --quiet requests
+      - name: Diagnose product URL + JSON path
         run: |
-          echo "photos: $(find docs/photos -type f 2>/dev/null | wc -l) files, $(du -sh docs/photos 2>/dev/null | cut -f1)"
-          echo "index.html: $(du -h docs/index.html | cut -f1)"
-      - name: Publish to shop-pages (clean tree)
-        run: |
-          touch docs/.nojekyll
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan pages-tmp
-          git rm -rf --cached . >/dev/null 2>&1 || true
-          git add -f docs
-          git commit -m "Rebuild variant shop (merged colours + carat/size options)"
-          git push -f origin pages-tmp:claude/shop-pages
+          python - <<'PY'
+          import re, json, requests
+          UA=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
+          S=requests.Session(); S.headers.update({"User-Agent":UA,"Referer":"https://www.quince.com/"})
+          def nd(h):
+              m=re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',h,re.S)
+              try: return json.loads(m.group(1)) if m else None
+              except Exception: return None
+          cat="https://www.quince.com/shop/women/jewelry/necklaces-all/lab-grown-diamond-necklaces"
+          h=S.get(cat,timeout=45); print("CAT status",h.status_code,"len",len(h.text))
+          d=nd(h.text)
+          # collect product-like objects, dump the first one's keys + a URL-ish field
+          prods=[]
+          def walk(o,path=""):
+              if isinstance(o,dict):
+                  if o.get("slug") and (o.get("productDomainTypes") or o.get("spid") or str(o.get("typename","")).lower()=="product"):
+                      prods.append(o)
+                  for k,v in o.items(): walk(v,path+"/"+k)
+              elif isinstance(o,list):
+                  for v in o: walk(v,path)
+          if d: walk(d)
+          print("product-like objects:",len(prods))
+          if prods:
+              p0=prods[0]
+              print("KEYS:",sorted(p0.keys()))
+              for k in ("slug","url","handle","path","href","canonicalUrl","productUrl","pdpUrl","spid","title","name"):
+                  if k in p0: print(f"  {k!r}:",json.dumps(p0[k])[:160])
+              slugs=[p.get("slug") for p in prods if p.get("slug") and "diamond" in p.get("slug","")][:3]
+              print("sample diamond slugs:",slugs)
+              # try URL patterns for the first slug
+              s=slugs[0] if slugs else prods[0]["slug"]
+              for tmpl in ["https://www.quince.com/women/{s}",
+                           "https://www.quince.com/shop/women/{s}",
+                           "https://www.quince.com/shop/women/jewelry/necklaces-all/{s}",
+                           "https://www.quince.com/shop/{s}",
+                           "https://www.quince.com/{s}"]:
+                  u=tmpl.format(s=s)
+                  try:
+                      r=S.get(u,timeout=45,allow_redirects=True)
+                      dd=nd(r.text)
+                      prod=None
+                      if dd:
+                          try: prod=dd["props"]["pageProps"]["pageData"]["context"]["pageDataJson"]["product"]
+                          except Exception: prod=None
+                      # also search anywhere for a "product" dict with variants
+                      has_variants=False
+                      if dd:
+                          txt=json.dumps(dd)
+                          has_variants='"variants"' in txt and '"new_color_options"' in txt
+                      print(f"{r.status_code} final={r.url[:70]} product={'Y' if prod else 'N'} variants_in_json={has_variants}  <- {u[:75]}")
+                  except Exception as e:
+                      print("ERR",tmpl,repr(e)[:80])
+          PY
