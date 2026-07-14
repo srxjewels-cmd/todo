@@ -1,43 +1,31 @@
-name: Probe variant values
+name: Build variant shop
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: pip install --quiet requests
-      - name: Dump real jewelry product variant values
+      - run: pip install --quiet requests pillow
+      - name: Scrape Quince variant catalog
+        run: python scrape_variants.py
+      - name: Build shop page
+        run: python build_variant_shop.py shopdata/variants.json --out docs/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
+      - name: Report sizes
         run: |
-          python - <<'PY'
-          import requests, re, json
-          UA={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/138 Safari/537.36"}
-          url="https://www.quince.com/women/14k-gold-lab-grown-diamond-pendant---1ctw"
-          h=requests.get(url,headers=UA,timeout=45).text
-          d=json.loads(re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',h,re.S).group(1))
-          prod=d["props"]["pageProps"]["pageData"]["context"]["pageDataJson"]["product"]
-          print("TITLE:",prod.get("title"))
-          print("SLUG:",prod.get("slug"))
-          print("\nPRODUCT_OPTIONS:"); print(json.dumps(prod.get("productOptions"),indent=1)[:1500])
-          print("\nnew_color_options:"); print(json.dumps(prod.get("new_color_options"),indent=1)[:1200])
-          print("\nVARIANT[0]:")
-          v=prod["variants"][0]
-          print("  price:",json.dumps(v.get("price"))[:300])
-          print("  title:",v.get("title"),"| options:",json.dumps(v.get("options"))[:300])
-          print("  traditionalRetailPrice:",json.dumps(v.get("traditionalRetailPrice"))[:200])
-          print("\n#variants:",len(prod["variants"]))
-          print("variant titles+prices:")
-          for v in prod["variants"][:8]:
-              pr=v.get("price"); amt=pr.get("amount") if isinstance(pr,dict) else pr
-              print("   ",v.get("title"),"|",amt,"| opts:",v.get("options"))
-          print("\nIMAGE[0]:",json.dumps(prod["images"][0])[:300])
-          print("#images:",len(prod.get("images",[])),"| #dynamicImages:",len(prod.get("dynamicImages",[]) or []))
-          # find details/description text
-          s=json.dumps(prod)
-          for key in ["description","details","longDescription","productDetails","copy","bullets"]:
-              i=s.lower().find('"'+key+'"')
-              if i>=0: print(f"\nfound key '{key}': ...{s[i:i+200]}")
-          PY
+          echo "photos: $(find docs/photos -type f 2>/dev/null | wc -l) files, $(du -sh docs/photos 2>/dev/null | cut -f1)"
+          echo "index.html: $(du -h docs/index.html | cut -f1)"
+      - name: Publish to shop-pages (clean tree)
+        run: |
+          touch docs/.nojekyll
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan pages-tmp
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          git add -f docs
+          git commit -m "Rebuild variant shop (merged colours + carat/size options)"
+          git push -f origin pages-tmp:claude/shop-pages
