@@ -89,7 +89,9 @@ python scrape_quince.py --out ./quince_scraped_data --chromium-path /opt/pw-brow
 - One product at a time with a polite delay — expect roughly 1–2 minutes per
   product family (all its carat/color variants included).
 - Images are deduplicated per variant and fetched at the highest resolution the
-  CDN offers (`w=2400`+); the original source URL of every photo is recorded in
-  `photos_manifest.json`.
+  page offers (largest `srcset` entry / unwrapped CDN original). If the CDN
+  blocks direct downloads, the scraper falls back to the exact bytes the
+  browser already rendered — so photos still get saved. The source URL of every
+  photo is recorded in `photos_manifest.json`.
 - Scraped content is Quince's copyrighted marketing material — use it for
   internal research/competitive analysis, not for republishing.

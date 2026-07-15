@@ -75,6 +75,10 @@ PRODUCT_PATH_RE = re.compile(r"^/(women|men|kids|gifts|home)/[a-z0-9][a-z0-9\-]*
 log = logging.getLogger("quince")
 
 
+class FatalPageError(RuntimeError):
+    """Navigation error that must not be retried (e.g. HTTP 404)."""
+
+
 # ----------------------------------------------------------------------------
 # small helpers
 # ----------------------------------------------------------------------------
@@ -90,7 +94,9 @@ def normalize_variant_url(url: str) -> str:
     """Canonical key for a variant: path + sorted color/size params only."""
     p = urllib.parse.urlsplit(url)
     q = urllib.parse.parse_qs(p.query)
-    keep = {k: v for k, v in q.items() if k.lower() in ("color", "size", "length")}
+    # identity is path + color only: size/length options don't change the page's
+    # photos/details, and keeping them would create duplicate folder writes
+    keep = {k: v for k, v in q.items() if k.lower() == "color"}
     query = urllib.parse.urlencode(sorted(keep.items()), doseq=True)
     return urllib.parse.urlunsplit(
         (p.scheme or "https", p.netloc or "www.quince.com", p.path.rstrip("/"), query, ""))
@@ -98,7 +104,7 @@ def normalize_variant_url(url: str) -> str:
 
 def family_key(url: str) -> str:
     """Product family = slug with the trailing ---<N>ctw removed, no query."""
-    path = urllib.parse.urlsplit(url).path.rstrip("/")
+    path = urllib.parse.urlsplit(url).path.rstrip("/").lower()
     return re.sub(r"---[0-9][0-9.\-]*\s*ctw$", "", path, flags=re.I)
 
 
@@ -120,7 +126,8 @@ def clean_text(s: str) -> str:
 def pick_largest_from_srcset(srcset: str) -> str:
     """Return the URL with the largest width descriptor from a srcset."""
     best_url, best_w = "", -1
-    for part in srcset.split(","):
+    # split on entry boundaries only — CDN URLs may legally contain commas
+    for part in re.split(r"\s*,\s*(?=(?:https?:)?/)", srcset):
         bits = part.strip().split()
         if not bits:
             continue
@@ -140,21 +147,11 @@ def absolutize(url: str, base: str = BASE + "/") -> str:
 
 
 def upsize_image_url(url: str, base: str = BASE + "/") -> str:
-    """Rewrite CDN/image-proxy URLs to request the highest resolution."""
+    """Bump resize params on direct CDN URLs (imgix-style). Never used for
+    /_next/image proxy URLs — the Next optimizer only accepts whitelisted
+    w/q values, so those must be requested exactly as the page emitted them."""
     url = absolutize(url, base)
     parts = urllib.parse.urlsplit(url)
-    # Next.js image proxy: /_next/image?url=<encoded original>&w=640&q=75
-    if "/_next/image" in parts.path:
-        q = urllib.parse.parse_qs(parts.query)
-        inner = q.get("url", [""])[0]
-        if inner.startswith("http"):
-            return upsize_image_url(inner)
-        if inner:  # relative inner URL: keep proxy but ask for max width
-            q["w"] = ["3840"]
-            q["q"] = ["90"]
-            return urllib.parse.urlunsplit(
-                parts._replace(query=urllib.parse.urlencode(q, doseq=True)))
-    # imgix / generic resize params: bump width, drop crops
     q = urllib.parse.parse_qs(parts.query)
     if any(k in q for k in ("w", "width")):
         for k in ("w", "width"):
@@ -164,6 +161,36 @@ def upsize_image_url(url: str, base: str = BASE + "/") -> str:
             q.pop(k, None)
         return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(q, doseq=True)))
     return url
+
+
+def download_candidates(url: str, base: str) -> list:
+    """Ordered URL candidates to try when downloading one image.
+
+    /_next/image proxy: try the unwrapped origin URL first (best quality),
+    then the proxy URL EXACTLY as the page emitted it (guaranteed valid —
+    the optimizer 400s on any w/q value not in its whitelist).
+    Direct CDN URL: try an upsized variant, then as-is, then query-stripped."""
+    u = absolutize(url, base)
+    parts = urllib.parse.urlsplit(u)
+    cands = []
+    if "/_next/image" in parts.path:
+        inner = urllib.parse.parse_qs(parts.query).get("url", [""])[0]
+        if inner.startswith("http"):
+            cands.append(inner)
+        cands.append(u)
+    else:
+        up = upsize_image_url(u, base)
+        if up != u:
+            cands.append(up)
+        cands.append(u)
+        if parts.query:
+            cands.append(urllib.parse.urlunsplit(parts._replace(query="")))
+    seen, out = set(), []
+    for c in cands:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
 
 
 def image_dedup_key(url: str) -> str:
@@ -179,6 +206,8 @@ def image_dedup_key(url: str) -> str:
 def looks_like_product_image(url: str) -> bool:
     u = url.lower()
     if u.startswith("data:"):
+        return False
+    if u.startswith("blob:"):  # blob/media-source URLs can't be re-fetched
         return False
     bad = ("logo", "icon", "sprite", "flag", "favicon", "badge", "payment",
            "avatar", "placeholder.", "loading.")
@@ -210,6 +239,20 @@ class QuinceScraper:
         self.index_rows = []
         self.failures = []
         self.visited_variants = set()
+        self._resp_buffer = []          # network responses of the current page
+        self.family_dir_by_fk = {}      # family key -> output dir
+        self.used_family_names = {}     # sanitized folder name -> family key
+        # merge with a previous run's index so resumed/partial runs never
+        # truncate the master index
+        self.prior_index = {}
+        try:
+            prior = json.loads((self.catalog_dir / "products_index.json")
+                               .read_text(encoding="utf-8"))
+            for row in prior:
+                if isinstance(row, dict) and row.get("url"):
+                    self.prior_index[row["url"]] = row
+        except Exception:
+            pass
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -226,6 +269,7 @@ class QuinceScraper:
             )
             context.set_default_timeout(self.args.timeout * 1000)
             page = context.new_page()
+            page.on("response", lambda r: self._resp_buffer.append(r))
             try:
                 product_urls = self.get_product_urls(page)
                 log.info("=== %d product tiles to scrape ===", len(product_urls))
@@ -263,27 +307,33 @@ class QuinceScraper:
         self.goto(page, self.args.listing_url)
         self.dismiss_popups(page)
 
-        stable_rounds, last_count = 0, -1
-        for _ in range(120):  # scroll/"load more" until the grid stops growing
+        # accumulate tiles across scroll rounds (virtualized grids may unmount
+        # earlier tiles as you scroll, so a single end-of-scroll harvest loses them)
+        stable_rounds, seen_tiles = 0, {}
+        for round_no in range(120):  # scroll/"load more" until the grid stops growing
             page.mouse.wheel(0, 20000)
             page.wait_for_timeout(1500)
+            if round_no % 5 == 4:  # delayed email-capture modals appear mid-scroll
+                self.dismiss_popups(page)
             for pat in (r"load more", r"show more", r"view more"):
                 try:
                     btn = page.get_by_role("button", name=re.compile(pat, re.I)).first
                     if btn.is_visible(timeout=500):
-                        btn.click()
+                        btn.click(timeout=3000)
                         page.wait_for_timeout(1500)
                 except Exception:
                     pass
-            count = len(self.listing_tiles(page))
-            if count == last_count:
+            before = len(seen_tiles)
+            for t in self.listing_tiles(page):
+                seen_tiles.setdefault(normalize_variant_url(t["url"]), t)
+            if len(seen_tiles) == before:
                 stable_rounds += 1
                 if stable_rounds >= 4:
                     break
             else:
-                stable_rounds, last_count = 0, count
+                stable_rounds = 0
 
-        tiles = self.listing_tiles(page)
+        tiles = list(seen_tiles.values())
         (self.catalog_dir / "listing_snapshot.html").write_text(page.content(), encoding="utf-8")
         (self.catalog_dir / "listing_tiles.json").write_text(
             json.dumps(tiles, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -345,9 +395,9 @@ class QuinceScraper:
             if url in self.visited_variants:
                 continue
             self.visited_variants.add(url)
-            if len(family_variants) >= self.args.max_variants_per_product:
-                log.warning("Variant cap (%d) hit for %s; skipping the rest.",
-                            self.args.max_variants_per_product, fk)
+            cap = self.args.max_variants_per_product
+            if cap and len(family_variants) >= cap:
+                log.warning("Variant cap (%d) hit for %s; skipping the rest.", cap, fk)
                 break
             try:
                 info = self.scrape_variant(page, url, fk, family_dir)
@@ -355,6 +405,7 @@ class QuinceScraper:
                 log.error("VARIANT FAILED %s: %s", url, e)
                 log.debug(traceback.format_exc())
                 self.failures.append({"stage": "variant", "url": url, "error": str(e)})
+                time.sleep(self.args.delay)  # stay polite even on failures
                 continue
             if family_dir is None:
                 family_dir = info["family_dir"]
@@ -385,8 +436,19 @@ class QuinceScraper:
         family_name = sanitize_name(re.sub(r"\s*[-–—]*\s*[0-9][0-9.]*\s*ctw\s*$", "",
                                            title, flags=re.I)) or sanitize_name(title)
         if family_dir is None:
-            family_dir = self.out / family_name
+            family_dir = self.family_dir_by_fk.get(fk)
+        if family_dir is None:
+            # two different products can sanitize to the same folder name —
+            # suffix with a slug hash instead of silently merging them
+            name = family_name
+            owner = self.used_family_names.get(name)
+            if owner is not None and owner != fk:
+                name = sanitize_name(
+                    f"{family_name} {hashlib.sha1(fk.encode()).hexdigest()[:6]}")
+            self.used_family_names[name] = fk
+            family_dir = self.out / name
         family_dir = Path(family_dir)
+        self.family_dir_by_fk[fk] = family_dir
         vdir = family_dir / sanitize_name(carat_label(url)) / sanitize_name(color_label(url))
         done_marker = vdir / "_done.json"
 
@@ -453,16 +515,25 @@ class QuinceScraper:
             comparison.get("text") or "No comparison section found on this page.",
             encoding="utf-8")
 
-        num_photos = 0
+        num_photos, media_expected = 0, 0
         if not self.args.skip_images:
             media = self.collect_media(page, ld)
-            num_photos = self.download_media(page, media, vdir / "photos")
+            media_expected = len(media)
+            prefetched = self.harvest_rendered_images(page)
+            num_photos = self.download_media(page, media, vdir / "photos", prefetched)
 
         summary.update({"price": price, "currency": currency, "rating": rating,
                         "review_count": review_count, "num_photos": num_photos})
         self.index_rows.append({**summary, "folder": str(vdir)})
-        done_marker.write_text(json.dumps(summary, indent=2, ensure_ascii=False),
-                               encoding="utf-8")
+        if media_expected and num_photos == 0:
+            # don't mark done — a future run should retry the photos
+            log.warning("  0/%d photos downloaded for %s; variant left unmarked "
+                        "so a re-run retries it", media_expected, url)
+            self.failures.append({"stage": "photos", "url": url,
+                                  "error": f"0/{media_expected} photos downloaded"})
+        else:
+            done_marker.write_text(json.dumps(summary, indent=2, ensure_ascii=False),
+                                   encoding="utf-8")
         log.info("  saved: %s | %s | %s | price=%s | photos=%d | sections=%d",
                  family_name, summary["carat"], summary["color"], price,
                  num_photos, len(sections))
@@ -716,29 +787,56 @@ class QuinceScraper:
             if key in seen:
                 continue
             seen.add(key)
-            final.append(upsize_image_url(u, page.url))
+            final.append({"key": key, "candidates": download_candidates(u, page.url)})
         return final
 
-    def download_media(self, page, urls, photos_dir: Path):
+    def harvest_rendered_images(self, page):
+        """Image/video bytes the browser itself already loaded for this page —
+        the fallback when direct requests are blocked by bot protection."""
+        cache = {}
+        for resp in list(self._resp_buffer):
+            try:
+                ctype = resp.headers.get("content-type", "")
+                if not ctype.startswith(("image/", "video/")):
+                    continue
+                if not looks_like_product_image(resp.url):
+                    continue
+                body = resp.body()
+                if body and len(body) >= 2048:
+                    cache[image_dedup_key(resp.url)] = (resp.url, body, ctype)
+            except Exception:
+                continue  # response no longer available — fine, it's a fallback
+        return cache
+
+    def download_media(self, page, media, photos_dir: Path, prefetched=None):
         photos_dir.mkdir(parents=True, exist_ok=True)
+        prefetched = prefetched or {}
         manifest, saved = {}, 0
-        for i, url in enumerate(urls, 1):
-            body, ctype = None, ""
-            for attempt, u in enumerate((url, re.sub(r"\?.*$", "", url)), 1):
+        for i, item in enumerate(media, 1):
+            body, ctype, used = None, "", item["candidates"][0]
+            for u in item["candidates"]:
                 try:
                     resp = page.context.request.get(
-                        u, timeout=45000, headers={"Referer": page.url})
+                        u, timeout=45000,
+                        headers={"Referer": page.url,
+                                 "Accept": "image/avif,image/webp,image/*,*/*;q=0.8"})
                     if resp.ok:
-                        body, ctype = resp.body(), resp.headers.get("content-type", "")
-                        break
+                        b = resp.body()
+                        if b and len(b) >= 2048:  # skip empty/1px responses
+                            body, ctype, used = b, resp.headers.get("content-type", ""), u
+                            break
                 except Exception as e:
-                    log.debug("  image attempt %d failed %s: %s", attempt, u, e)
-            if not body or len(body) < 2048:  # skip empty/1px responses
-                self.failures.append({"stage": "image", "url": url, "error": "download failed"})
+                    log.debug("  image attempt failed %s: %s", u, e)
+            if body is None and item["key"] in prefetched:
+                used, body, ctype = prefetched[item["key"]]
+                log.debug("  using browser-rendered bytes for %s", used)
+            if not body or len(body) < 2048:
+                self.failures.append({"stage": "image", "url": item["candidates"][0],
+                                      "error": "download failed"})
                 continue
-            name = f"{i:02d}_{hashlib.sha1(url.encode()).hexdigest()[:8]}{guess_ext(url, ctype)}"
+            name = f"{i:02d}_{hashlib.sha1(used.encode()).hexdigest()[:8]}{guess_ext(used, ctype)}"
             (photos_dir / name).write_bytes(body)
-            manifest[name] = url
+            manifest[name] = used
             saved += 1
         (photos_dir.parent / "photos_manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -749,19 +847,24 @@ class QuinceScraper:
     def goto(self, page, url):
         last_err = None
         for attempt in range(1, 4):
+            self._resp_buffer.clear()  # only keep responses for the current page
             try:
                 resp = page.goto(url, wait_until="domcontentloaded",
                                  timeout=self.args.timeout * 1000)
                 if resp and resp.status == 404:
-                    raise RuntimeError(f"HTTP 404 — page does not exist: {url}")
+                    raise FatalPageError(f"HTTP 404 — page does not exist: {url}")
                 if resp and resp.status in (403, 429, 503):
                     raise RuntimeError(f"HTTP {resp.status} (blocked/rate-limited)")
                 page.wait_for_timeout(1200)
                 return
+            except FatalPageError:
+                raise
             except Exception as e:
                 last_err = e
                 log.warning("goto attempt %d failed for %s: %s", attempt, url, e)
-                page.wait_for_timeout(2500 * attempt)
+                # rate limiting needs a real cool-down, not seconds
+                backoff = 30000 * attempt if "429" in str(e) else 2500 * attempt
+                page.wait_for_timeout(backoff)
         raise RuntimeError(f"Could not load {url}: {last_err}")
 
     def dismiss_popups(self, page):
@@ -823,17 +926,28 @@ class QuinceScraper:
         return "\n".join(lines)
 
     def write_index(self):
+        merged = dict(self.prior_index)  # never truncate earlier runs' rows
+        for r in self.index_rows:
+            merged[r.get("url")] = r
+        rows = sorted(merged.values(),
+                      key=lambda r: (str(r.get("product_family") or ""),
+                                     str(r.get("carat") or ""),
+                                     str(r.get("color") or "")))
         cols = ["product_family", "title", "carat", "color", "price", "currency",
                 "rating", "review_count", "num_photos", "url", "folder"]
-        with open(self.catalog_dir / "products_index.csv", "w", newline="",
-                  encoding="utf-8-sig") as f:
-            w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
-            w.writeheader()
-            w.writerows(self.index_rows)
-        (self.catalog_dir / "products_index.json").write_text(
-            json.dumps(self.index_rows, indent=2, ensure_ascii=False), encoding="utf-8")
-        (self.catalog_dir / "failures.json").write_text(
-            json.dumps(self.failures, indent=2, ensure_ascii=False), encoding="utf-8")
+        try:
+            with open(self.catalog_dir / "products_index.csv", "w", newline="",
+                      encoding="utf-8-sig") as f:
+                w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+                w.writeheader()
+                w.writerows(rows)
+            (self.catalog_dir / "products_index.json").write_text(
+                json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
+            (self.catalog_dir / "failures.json").write_text(
+                json.dumps(self.failures, indent=2, ensure_ascii=False), encoding="utf-8")
+        except OSError as e:
+            # e.g. the CSV is open in Excel — keep scraping, retry next flush
+            log.warning("Could not write index files (open in Excel?): %s", e)
 
 
 # ----------------------------------------------------------------------------
@@ -874,7 +988,12 @@ def main():
     args = ap.parse_args()
 
     out = Path(args.out)
-    (out / "_catalog").mkdir(parents=True, exist_ok=True)
+    try:
+        (out / "_catalog").mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        sys.exit(f"ERROR: cannot create output folder {out} ({e}).\n"
+                 f"Does the drive exist and is it writable? "
+                 f"Pick another location with --out.")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
