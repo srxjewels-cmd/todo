@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .todo.json
+jewels/
+mock_out/
+mock_site/assets/

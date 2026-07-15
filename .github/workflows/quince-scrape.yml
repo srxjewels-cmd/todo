@@ -1,0 +1,50 @@
+name: Build variant shop
+on:
+  workflow_dispatch:
+    inputs:
+      scrape:
+        description: 'Re-scrape Quince (else rebuild page from committed shopdata/variants.json, keeping existing photos)'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install --quiet requests pillow
+      - name: Scrape Quince (optional)
+        if: ${{ inputs.scrape }}
+        run: python scrape_variants.py
+      - name: Build storefront
+        run: |
+          python apply_ring_carats.py shopdata/variants.json catalog/ring_carats.csv --out /tmp/enriched.json
+          python build_quince_shop.py /tmp/enriched.json --out /tmp/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
+      - name: Report
+        run: |
+          echo "photos $(find docs/photos -type f 2>/dev/null | wc -l) files"
+      - name: Publish to shop-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ "${{ inputs.scrape }}" = "true" ]; then
+            cp /tmp/index.html docs/index.html
+            cp /tmp/enriched.json docs/variants.json
+            touch docs/.nojekyll
+            git checkout --orphan pages-tmp
+            git rm -rf --cached . >/dev/null 2>&1 || true
+            git add -f docs
+            git commit -m "Rebuild Quince-style storefront (re-scraped)"
+            git push -f origin pages-tmp:claude/shop-pages
+          else
+            git fetch origin claude/shop-pages
+            git checkout -B shoppages origin/claude/shop-pages
+            cp /tmp/index.html docs/index.html
+            touch docs/.nojekyll
+            git add docs/index.html docs/.nojekyll
+            git commit -m "Rebuild storefront page"
+            git push origin shoppages:claude/shop-pages
+          fi
