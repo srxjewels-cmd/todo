@@ -1,0 +1,2 @@
+pageProps: ["type", "pageData", "_nextI18Next", "regionDetails", "locale", "siteData", "deviceType", "contentVersion", "seoMetaData", "pathName", "status", "searchParams", "statsigProps", "serverSideFeatureFlags", "nonce", "zipCodeInfo", "isI18nPreviewEnabled", "localeConfig", "canaryGroupId", "userAgnosticGlobalFeatureGates", "isDesignSystemEnabled", "ecommSsrDynamicConfig", "trackingContext"]
+pageData: ["type", "context", "alternateUrls"]
