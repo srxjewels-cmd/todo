@@ -2,14 +2,10 @@
 
 Trigger: when the user says **"let's do execution 2"**, resume this.
 
-## Goal (user's words)
-> new goal: scrape full jewellery section (that says lab) in proper form with photos of every
-> size option and each photo of every size, every section details and comparison and every
-> detail in it — in the details so that in the future I want you to use it.
-
-Decoded — scrape the **full Quince lab‑grown jewelry section** (everywhere it says "lab" /
-lab‑grown) into a **proper structured catalog** for future use by the SRX DIAMONDS storefront
-engine, capturing **every detail**:
+## Goal (user's words, decoded)
+Scrape the **full Quince lab‑grown jewelry section** (everywhere it says "lab" / lab‑grown)
+into a **proper structured catalog** for future use by the SRX DIAMONDS storefront engine,
+capturing **every detail**:
 
 - **Every category** of lab‑grown diamond jewelry (necklaces, bracelets, rings, engagement
   rings, wedding bands, earrings/studs/hoops/huggies, pendants, tennis, etc.) — not just the
