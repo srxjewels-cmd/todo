@@ -58,6 +58,7 @@
   .fsw{width:17px;height:17px;border-radius:50%;border:1px solid rgba(0,0,0,.22);flex:0 0 auto}
   .fopt.on .fsw{outline:2px solid var(--ink);outline-offset:1px}
   .flab{flex:1}.fcnt{color:var(--faint);font-size:.8rem}
+  .fsub{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 2px;padding:0 4px}
   .sizewrap{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
   .sizecell{border:1px solid var(--line);background:#fff;border-radius:6px;text-align:center;padding:8px 2px;font-size:.8rem;cursor:pointer;color:var(--ink);font-family:inherit}
   .sizecell.on{border-color:var(--ink);background:var(--panel)}
@@ -282,13 +283,18 @@ function pColors(p){var c=colorOpt(p);var out={};if(c)c.values.forEach(function(
 function pSizes(p){for(var i=0;i<(p.options||[]).length;i++)if(p.options[i].name==="Size")return p.options[i].values.map(function(v){return v.label;});return [];}
 function pMaterials(p){return p.materials||["Lab Grown Diamond"];}
 function pBucket(p){var u=minUsd(p);for(var i=0;i<PRICE_BUCKETS.length;i++){var b=PRICE_BUCKETS[i];if(u>=b[1]&&u<b[2])return b[0];}return null;}
-function caratOpt(p){for(var i=0;i<(p.options||[]).length;i++){var n=p.options[i].name;if(n==="Carat"||n==="Center Carat Weight")return p.options[i];}return null;}
-function pCarat(p){var o=caratOpt(p);return o?o.values.map(function(v){return v.label;}):[];}
+function caratOpts(p){var out=[];(p.options||[]).forEach(function(o){if(o.name==="Carat"||o.name==="Center Carat Weight")out.push(o);});return out;}
 function caratRank(s){var m=(""+s).match(/[\d.]+/);return m?parseFloat(m[0]):999;}
+var CSEP="␟";  /* separates a carat option-name from its value in filter keys */
 
 function present(fn){var s={};PRODUCTS.forEach(function(p){(Array.isArray(fn(p))?fn(p):[fn(p)]).forEach(function(x){if(x)s[x]=(s[x]||0)+1;});});return s;}
-var HAS_COLOR=present(pColors), HAS_SIZE=present(pSizes), HAS_MAT=present(pMaterials), HAS_PRICE=present(function(p){return pBucket(p);}), HAS_CARAT=present(pCarat);
-var CARAT_LABEL=(function(){var named=false,ctw=false;PRODUCTS.forEach(function(p){var o=caratOpt(p);if(o){if(o.name==="Center Carat Weight")ctw=true;else named=true;}});return (ctw&&!named)?"Center Carat Weight":"Carat";})();
+var HAS_COLOR=present(pColors), HAS_SIZE=present(pSizes), HAS_MAT=present(pMaterials), HAS_PRICE=present(function(p){return pBucket(p);});
+/* carat kept per option-name so "Carat" (total weight) and "Center Carat Weight" (centre stone) never conflate */
+var CARAT_NAMES=(function(){var s=[];PRODUCTS.forEach(function(p){caratOpts(p).forEach(function(o){if(s.indexOf(o.name)<0)s.push(o.name);});});return s;})();
+var CARAT_HAS={};CARAT_NAMES.forEach(function(n){CARAT_HAS[n]={};});
+PRODUCTS.forEach(function(p){caratOpts(p).forEach(function(o){o.values.forEach(function(v){CARAT_HAS[o.name][v.label]=(CARAT_HAS[o.name][v.label]||0)+1;});});});
+var HAS_CARAT={};CARAT_NAMES.forEach(function(n){Object.keys(CARAT_HAS[n]).forEach(function(v){HAS_CARAT[n+CSEP+v]=1;});});
+var CARAT_LABEL=(CARAT_NAMES.length===1?CARAT_NAMES[0]:"Carat");
 
 /* ---------- state ---------- */
 var F={cat:"All",sort:"featured",q:"",colors:{},carat:{},sizes:{},materials:{},prices:{}};
@@ -297,7 +303,7 @@ function matches(p){
   if(F.cat!=="All"&&p.cat!==F.cat)return false;
   if(F.q){var t=(p.name+" "+p.cat).toLowerCase();if(t.indexOf(F.q.toLowerCase())<0)return false;}
   var cs=Object.keys(F.colors);if(cs.length){var pc=pColors(p);if(!cs.some(function(c){return pc.indexOf(c)>=0;}))return false;}
-  var kt=Object.keys(F.carat);if(kt.length){var pk=pCarat(p);if(!kt.some(function(c){return pk.indexOf(c)>=0;}))return false;}
+  var kt=Object.keys(F.carat);if(kt.length){var okc=kt.some(function(key){var i=key.indexOf(CSEP);var nm=key.slice(0,i),val=key.slice(i+1);return caratOpts(p).some(function(o){return o.name===nm&&o.values.some(function(v){return v.label===val;});});});if(!okc)return false;}
   var ss=Object.keys(F.sizes);if(ss.length){var ps=pSizes(p);if(!ss.some(function(s){return ps.indexOf(s)>=0;}))return false;}
   var ms=Object.keys(F.materials);if(ms.length){var pm=pMaterials(p);if(!ms.some(function(m){return pm.indexOf(m)>=0;}))return false;}
   var bs=Object.keys(F.prices);if(bs.length){if(bs.indexOf(pBucket(p))<0)return false;}
@@ -371,13 +377,13 @@ grid.addEventListener("click",function(e){
   var s=e.target.closest(".s[data-ci]");
   var card=e.target.closest(".card");if(!card)return;var p=PRODUCTS[+card.dataset.i];
   if(s){openPDP(p,+s.dataset.ci);return;}
-  openPDP(p,0);
+  openPDP(p,-1);
 });
 
 /* ---------- chips ---------- */
 function renderChips(){
   var box=document.getElementById("chips");var out=[];
-  ["colors","carat","sizes","materials","prices"].forEach(function(k){Object.keys(F[k]).forEach(function(v){out.push('<span class="chip">'+esc(v)+'<button data-ck="'+k+'" data-cv="'+esc(v)+'">✕</button></span>');});});
+  ["colors","carat","sizes","materials","prices"].forEach(function(k){Object.keys(F[k]).forEach(function(v){var disp=v;if(k==="carat"){var i=v.indexOf(CSEP);disp=(CARAT_NAMES.length>1?v.slice(0,i)+": ":"")+v.slice(i+1);}out.push('<span class="chip">'+esc(disp)+'<button data-ck="'+k+'" data-cv="'+esc(v)+'">✕</button></span>');});});
   if(F.q)out.push('<span class="chip">“'+esc(F.q)+'”<button data-clearq>✕</button></span>');
   box.innerHTML=out.join("");
 }
@@ -392,7 +398,7 @@ function groupOptions(kind){
   if(kind==="materials")return '<div class="fopts">'+MATERIAL_ORDER.filter(function(m){return HAS_MAT[m];}).map(function(m){return '<button class="fopt'+(F.materials[m]?" on":"")+'" data-group="materials" data-v="'+esc(m)+'"><span class="fbox"></span><span class="flab">'+esc(m)+'</span><span class="fcnt">'+HAS_MAT[m]+'</span></button>';}).join("")+'</div>';
   if(kind==="prices")return '<div class="fopts">'+PRICE_BUCKETS.filter(function(b){return HAS_PRICE[b[0]];}).map(function(b){return '<button class="fopt'+(F.prices[b[0]]?" on":"")+'" data-group="prices" data-v="'+esc(b[0])+'"><span class="fbox"></span><span class="flab">'+esc(b[0])+'</span><span class="fcnt">'+HAS_PRICE[b[0]]+'</span></button>';}).join("")+'</div>';
   if(kind==="sizes"){var sz=Object.keys(HAS_SIZE).sort(function(a,b){return sizeRank(a)-sizeRank(b);});return '<div class="sizewrap">'+sz.map(function(s){return '<button class="sizecell'+(F.sizes[s]?" on":"")+'" data-group="sizes" data-v="'+esc(s)+'">'+esc(s)+'</button>';}).join("")+'</div>';}
-  if(kind==="carat"){var ct=Object.keys(HAS_CARAT).sort(function(a,b){return caratRank(a)-caratRank(b);});return '<div class="fopts">'+ct.map(function(c){return '<button class="fopt'+(F.carat[c]?" on":"")+'" data-group="carat" data-v="'+esc(c)+'"><span class="fbox"></span><span class="flab">'+esc(c)+'</span><span class="fcnt">'+HAS_CARAT[c]+'</span></button>';}).join("")+'</div>';}
+  if(kind==="carat"){return CARAT_NAMES.map(function(nm){var vals=Object.keys(CARAT_HAS[nm]).sort(function(a,b){return caratRank(a)-caratRank(b);});var head=(CARAT_NAMES.length>1)?'<div class="fsub">'+esc(nm)+'</div>':'';return head+'<div class="fopts">'+vals.map(function(c){var key=nm+CSEP+c;return '<button class="fopt'+(F.carat[key]?" on":"")+'" data-group="carat" data-v="'+esc(key)+'"><span class="fbox"></span><span class="flab">'+esc(c)+'</span><span class="fcnt">'+CARAT_HAS[nm][c]+'</span></button>';}).join("")+'</div>';}).join("");}
   return "";
 }
 function toggleFilter(g,v){if(F[g][v])delete F[g][v];else F[g][v]=1;}
@@ -481,8 +487,11 @@ function buildOpts(){
   });
 }
 function openPDP(p,ci){
-  LP=p;LSEL={};var v0=firstVar(p);for(var k in v0.sel)LSEL[k]=v0.sel[k];
-  var co=colorOpt(p);if(co&&ci&&co.values[ci])LSEL[co.name]=co.values[ci].label;
+  LP=p;LSEL={};
+  var co=colorOpt(p),v0;
+  if(ci>=0&&co&&co.values[ci])v0=matchVar(p,{Color:co.values[ci].label});  /* swatch click -> that colour */
+  else v0=minVar(p);                                                        /* card body -> cheapest, matches card 'from' + % off */
+  for(var k in v0.sel)LSEL[k]=v0.sel[k];
   document.getElementById("pcat").textContent=p.cat;
   document.getElementById("pname").textContent=p.name;
   document.getElementById("prate").innerHTML=p.rating?STAR+esc(p.rating.toFixed(1))+(p.reviews?' <span style="color:var(--faint)">('+p.reviews+' reviews)</span>':''):"";
