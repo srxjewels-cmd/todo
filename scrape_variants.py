@@ -2,17 +2,17 @@
 r"""Scrape Quince lab-grown-diamond jewelry into a variant catalog.
 
 For each category it finds product pages, reads each product's __NEXT_DATA__
-(colours+hex, size options, price, per-colour images, details HTML, and the
-carat from the slug/title), then groups sibling pages by base design into
-variant products for build_variant_shop.py:
+(colours+hex, sizes, per-colour+per-carat price, original price, rating,
+per-colour images, details) and groups sibling pages by base design.
 
   design = one card with Color swatches + Carat + Size options; each
-  (colour x carat x size) variant carries its price and that colour's photos.
+  (colour x carat) variant carries its own price and its own photos, so the
+  gallery changes when either the colour OR the carat is changed.
 
 Images are downloaded + resized under docs/photos/<designId>/<n>.jpg and
-referenced by relative path. Writes shopdata/variants.json and docs/index.html.
+referenced by relative path. Writes shopdata/variants.json.
 """
-import re, io, json, time, html as htmlmod, pathlib, sys
+import re, io, json, time, html as htmlmod, pathlib
 import requests
 from PIL import Image
 
@@ -33,6 +33,13 @@ COLOR_HEX = {"Yellow Gold": "#E6C46A", "White Gold": "#E5E5E8", "Rose Gold": "#E
              "Platinum": "#D8D8DE", "Gold Vermeil": "#E6C46A", "Sterling Silver": "#DCDCE0",
              "Gold": "#E6C46A", "Silver": "#DCDCE0"}
 COLORS = list(COLOR_HEX)
+# map a metal colour to Quince's simplified Color-filter bucket + Material
+QCOLOR = {"yellow gold": "Yellow", "white gold": "White", "rose gold": "Pink",
+          "platinum": "Grey", "gold vermeil": "Yellow", "sterling silver": "Grey",
+          "gold": "Yellow", "silver": "Grey", "pink gold": "Pink"}
+QMETAL = {"yellow gold": "14k Gold", "white gold": "14k Gold", "rose gold": "14k Gold",
+          "platinum": "Platinum", "gold vermeil": "Gold Vermeil",
+          "sterling silver": "Sterling Silver", "gold": "14k Gold", "silver": "Sterling Silver"}
 
 
 def get(url):
@@ -43,7 +50,7 @@ def get(url):
                 return r.text
         except requests.RequestException:
             pass
-        time.sleep(1.5 * a)
+        time.sleep(1.2 * a)
     return ""
 
 
@@ -111,21 +118,20 @@ def carat_of(title, slug):
     m = CARAT_RE.search(title) or CARAT_RE.search(slug.replace("-", " "))
     if not m:
         return None
-    val = m.group(1).rstrip(".")
-    return f"{val}ctw"
+    return f"{m.group(1).rstrip('.')}ctw"
 
 
 def strip_variant_bits(title):
     t = re.sub(r"\s+in\s+(%s)\s*$" % "|".join(map(re.escape, COLORS)), "", title, flags=re.I)
     t = CARAT_RE.sub("", t)
     t = re.sub(r"[-–]\s*$", "", t).strip(" -–")
-    t = re.sub(r"\s{2,}", " ", t)
-    return t.strip()
+    return re.sub(r"\s{2,}", " ", t).strip()
 
 
-def vprice(v):
-    pr = v.get("price")
-    return pr.get("amount") if isinstance(pr, dict) else pr
+def amt(x):
+    if isinstance(x, dict):
+        return x.get("amount")
+    return x
 
 
 def product_url(slug):
@@ -160,15 +166,37 @@ def scrape_product(slug):
     sizes = []
     for v in variants:
         for o in v.get("options", []):
-            nm = o.get("name")
-            val = o.get("value")
+            nm, val = o.get("name"), o.get("value")
             if nm and nm != "Color" and val and val != "One Size" and val not in sizes:
                 sizes.append(val)
-    price = None
+    # price + original price, per colour
+    price_by_color, orig_by_color = {}, {}
+    overall = None
     for v in variants:
-        a = vprice(v)
+        a = amt(v.get("price"))
+        cols = [o["value"] for o in v.get("options", []) if o.get("name") == "Color"]
+        key = cols[0] if cols else "_all"
         if a is not None:
-            price = a if price is None else min(price, a)
+            overall = a if overall is None else min(overall, a)
+            price_by_color[key] = a if key not in price_by_color else min(price_by_color[key], a)
+        ob = amt(v.get("traditionalRetailPrice"))
+        if ob:
+            orig_by_color[key] = ob if key not in orig_by_color else min(orig_by_color[key], ob)
+    # rating / reviews (best effort)
+    rating, reviews = None, None
+    ps = json.dumps(p)
+    m = re.search(r'"(?:averageRating|starRating|ratingValue|averageReviewRating|rating)":\s*([\d.]+)', ps)
+    if m:
+        try:
+            rating = round(float(m.group(1)), 1)
+            if rating > 5:
+                rating = None
+        except Exception:
+            pass
+    m2 = re.search(r'"(?:reviewCount|ratingCount|numReviews|totalReviews|reviewsCount)":\s*(\d+)', ps)
+    if m2:
+        reviews = int(m2.group(1))
+    # images per colour
     imgs_by_color = {}
     for im in p.get("images", []):
         u = (im.get("image") or {}).get("url", "")
@@ -183,8 +211,14 @@ def scrape_product(slug):
         key = cols[0] if cols else "_all"
         imgs_by_color.setdefault(key, []).append(u)
     return {"title": title, "slug": slug, "colours": colours, "sizes": sizes,
-            "price": price, "imgs_by_color": imgs_by_color,
+            "price_by_color": price_by_color, "orig_by_color": orig_by_color,
+            "overall": overall, "rating": rating, "reviews": reviews,
+            "imgs_by_color": imgs_by_color,
             "details": clean_details(p.get("details", "")), "carat": carat_of(title, slug)}
+
+
+def norm(s):
+    return re.sub(r"1[048]k|[^a-z0-9]", "", s.lower())
 
 
 def download(url, dest_full, dest_thumb):
@@ -196,26 +230,30 @@ def download(url, dest_full, dest_thumb):
     except Exception:
         return False
     w, h = im.size
-    if w > 1600:
-        im = im.resize((1600, round(h * 1600 / w)))
+    if w > 1500:
+        im = im.resize((1500, round(h * 1500 / w)))
     im.save(dest_full, "JPEG", quality=85, optimize=True)
     w, h = im.size
-    tw = min(700, w)
+    tw = min(600, w)
     im.resize((tw, round(h * tw / w))).save(dest_thumb, "JPEG", quality=78, optimize=True)
     return True
+
+
+def slugify(s):
+    return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-") or "x"
 
 
 def main():
     photos = pathlib.Path("docs/photos")
     photos.mkdir(parents=True, exist_ok=True)
-    designs = {}   # (cat, base) -> design dict
+    designs = {}
     dcount = 0
     for cat, url in CATS.items():
         slugs = category_slugs(url)
         print(f"[{cat}] {len(slugs)} product slugs", flush=True)
         for slug in slugs:
             rec = scrape_product(slug)
-            if not rec or rec["price"] is None:
+            if not rec or rec["overall"] is None:
                 continue
             base = strip_variant_bits(rec["title"]) or slug
             realcat = cat
@@ -228,110 +266,112 @@ def main():
                 dcount += 1
                 d = designs[key] = {"id": f"D{dcount:03d}", "cat": realcat, "name": base,
                                     "colours": {}, "carats": [], "sizes": [],
-                                    "details": "", "rows": []}
+                                    "details": "", "rating": None, "reviews": None, "rows": []}
             for c in rec["colours"]:
                 if c["label"] and c["label"] not in d["colours"]:
                     d["colours"][c["label"]] = c["hex"]
-            car = rec["carat"]
-            if car and car not in d["carats"]:
-                d["carats"].append(car)
+            if rec["carat"] and rec["carat"] not in d["carats"]:
+                d["carats"].append(rec["carat"])
             for s in rec["sizes"]:
                 if s not in d["sizes"]:
                     d["sizes"].append(s)
             if rec["details"] and len(rec["details"]) > len(d["details"]):
                 d["details"] = rec["details"]
+            if rec["rating"] and (d["rating"] is None or (rec["reviews"] or 0) > (d["reviews"] or 0)):
+                d["rating"], d["reviews"] = rec["rating"], rec["reviews"]
             d["rows"].append(rec)
-        time.sleep(0.5)
+        time.sleep(0.3)
 
-    # assemble variant products + download images
     out = []
     for (cat, base), d in designs.items():
         did = d["id"]
-        colour_imgs = {}     # colour label -> [rel paths]
-        # gather images per colour across rows
-        raw_by_color = {}
-        for rec in d["rows"]:
-            for ck, urls in rec["imgs_by_color"].items():
-                raw_by_color.setdefault(ck, [])
-                for u in urls:
-                    if u not in raw_by_color[ck]:
-                        raw_by_color[ck].append(u)
-        # download (cap 8/colour)
-        for ck, urls in raw_by_color.items():
-            safe = re.sub(r"[^a-z0-9]+", "-", ck.lower()).strip("-") or "all"
-            folder = photos / did / safe
-            folder.mkdir(parents=True, exist_ok=True)
-            rels = []
-            n = 0
-            for u in urls[:8]:
-                n += 1
-                full = folder / f"{n}.jpg"
-                thumb = folder / f"{n}_t.jpg"
-                if download(u, full, thumb):
-                    rels.append({"full": f"photos/{did}/{safe}/{n}.jpg",
-                                 "thumb": f"photos/{did}/{safe}/{n}_t.jpg"})
-            colour_imgs[ck] = rels
         colour_labels = list(d["colours"].keys())
-        options = []
-        if len(colour_labels) >= 1 and any(colour_labels):
-            options.append({"name": "Color", "type": "swatch",
-                            "values": [{"label": c, "hex": d["colours"][c]} for c in colour_labels]})
         carats = sorted(d["carats"], key=lambda x: float(re.sub(r"[^\d.]", "", x) or 0))
-        if len(carats) >= 2:
-            options.append({"name": "Carat", "type": "select",
-                            "values": [{"label": c} for c in carats]})
-        if len(d["sizes"]) >= 2:
-            options.append({"name": "Size", "type": "select",
-                            "values": [{"label": s} for s in d["sizes"]]})
+        multi_carat = len(carats) >= 2
 
-        def norm(s):
-            return re.sub(r"1[048]k|[^a-z0-9]", "", s.lower())
+        # per-design image cache: unique URL -> {full,thumb} rel paths (dedupes shared photos)
+        imgcache, counter = {}, [0]
 
-        def imgs_for(colour):
-            if colour_imgs.get(colour):
-                return colour_imgs[colour]
-            cn = norm(colour)
-            if cn:
-                for k, v in colour_imgs.items():
-                    if v and k not in ("_all",) and (norm(k) == cn or cn in norm(k) or norm(k) in cn):
-                        return v
-            if colour_imgs.get("_all"):
-                return colour_imgs["_all"]
-            for v in colour_imgs.values():
-                if v:
-                    return v
-            return []
+        def fetch(urls):
+            rels = []
+            for u in urls[:6]:
+                if u in imgcache:
+                    if imgcache[u]:
+                        rels.append(imgcache[u])
+                    continue
+                counter[0] += 1
+                n = counter[0]
+                full = photos / did / f"{n}.jpg"
+                thumb = photos / did / f"{n}_t.jpg"
+                full.parent.mkdir(parents=True, exist_ok=True)
+                if download(u, full, thumb):
+                    imgcache[u] = {"full": f"photos/{did}/{n}.jpg", "thumb": f"photos/{did}/{n}_t.jpg"}
+                    rels.append(imgcache[u])
+                else:
+                    imgcache[u] = None
+            return rels
+
+        def imgs_for(rec, colour):
+            ic = rec["imgs_by_color"]
+            if ic.get(colour):
+                urls = ic[colour]
+            else:
+                cn = norm(colour)
+                urls = None
+                if cn:
+                    for k, v in ic.items():
+                        if v and k != "_all" and (norm(k) == cn or cn in norm(k) or norm(k) in cn):
+                            urls = v
+                            break
+                if urls is None:
+                    urls = ic.get("_all") or (next((v for v in ic.values() if v), []))
+            return fetch(urls or [])
 
         variants = []
+        seen = set()
         for rec in d["rows"]:
             car = rec["carat"]
             rcolours = [c["label"] for c in rec["colours"] if c["label"]] or [""]
             for colour in rcolours:
-                imset = imgs_for(colour)
                 sel = {}
                 if any(colour_labels):
                     sel["Color"] = colour
-                if len(carats) >= 2 and car:
+                if multi_carat and car:
                     sel["Carat"] = car
+                k = json.dumps(sel, sort_keys=True)
+                if k in seen:
+                    continue
+                imset = imgs_for(rec, colour)
+                if not imset:
+                    continue
+                seen.add(k)
+                usd = rec["price_by_color"].get(colour) or rec["price_by_color"].get("_all") or rec["overall"]
+                orig = rec["orig_by_color"].get(colour) or rec["orig_by_color"].get("_all")
                 variants.append({
-                    "sel": sel, "usd": rec["price"], "from": False,
-                    "imgs": [x["full"] for x in imset],
-                    "thumb": imset[0]["thumb"] if imset else "",
+                    "sel": sel, "usd": usd, "orig": orig if orig and orig > (usd or 0) else None,
+                    "imgs": [x["full"] for x in imset], "thumb": imset[0]["thumb"],
                 })
-        # dedupe variants by sel (keep first)
-        seen = set()
-        uniq = []
-        for v in variants:
-            k = json.dumps(v["sel"], sort_keys=True)
-            if k in seen:
-                continue
-            seen.add(k)
-            if v["imgs"]:
-                uniq.append(v)
-        if not uniq:
+        if not variants:
             continue
+
+        options = []
+        if any(colour_labels):
+            options.append({"name": "Color", "type": "swatch",
+                            "values": [{"label": c, "hex": d["colours"][c],
+                                        "q": QCOLOR.get(c.lower().strip())} for c in colour_labels]})
+        if multi_carat:
+            options.append({"name": "Carat", "type": "select", "values": [{"label": c} for c in carats]})
+        if len(d["sizes"]) >= 2:
+            options.append({"name": "Size", "type": "select", "values": [{"label": s} for s in d["sizes"]]})
+
+        materials = ["Lab Grown Diamond"]
+        for c in colour_labels:
+            mt = QMETAL.get(c.lower().strip())
+            if mt and mt not in materials:
+                materials.append(mt)
         out.append({"id": did, "cat": cat, "name": d["name"], "details": d["details"],
-                    "options": options, "variants": uniq})
+                    "rating": d["rating"], "reviews": d["reviews"], "materials": materials,
+                    "options": options, "variants": variants})
 
     order = ["Engagement Rings", "Rings", "Necklaces", "Earrings", "Bracelets"]
     out.sort(key=lambda p: (order.index(p["cat"]) if p["cat"] in order else 99, p["name"].lower()))
@@ -339,6 +379,7 @@ def main():
     json.dump(out, open("shopdata/variants.json", "w", encoding="utf-8"), ensure_ascii=False)
     from collections import Counter
     print("designs:", len(out), dict(Counter(p["cat"] for p in out)))
+    print("with carat option:", sum(1 for p in out for o in p["options"] if o["name"] == "Carat"))
     print("total variants:", sum(len(p["variants"]) for p in out))
     print("total images:", sum(len(v["imgs"]) for p in out for v in p["variants"]))
 
