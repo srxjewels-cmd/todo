@@ -2,10 +2,14 @@
 
 Trigger: when the user says **"let's do execution 2"**, resume this.
 
-## Goal (user's words, decoded)
-Scrape the **full Quince lab‑grown jewelry section** (everywhere it says "lab" / lab‑grown)
-into a **proper structured catalog** for future use by the SRX DIAMONDS storefront engine,
-capturing **every detail**:
+## Goal (user's words)
+> new goal: scrape full jewellery section (that says lab) in proper form with photos of every
+> size option and each photo of every size, every section details and comparison and every
+> detail in it — in the details so that in the future I want you to use it.
+
+Decoded — scrape the **full Quince lab‑grown jewelry section** (everywhere it says "lab" /
+lab‑grown) into a **proper structured catalog** for future use by the SRX DIAMONDS storefront
+engine, capturing **every detail**:
 
 - **Every category** of lab‑grown diamond jewelry (necklaces, bracelets, rings, engagement
   rings, wedding bands, earrings/studs/hoops/huggies, pendants, tennis, etc.) — not just the
@@ -34,13 +38,6 @@ full details — desktop + mobile, matching Quince's jewelry UX.
 - PDP **Center Carat Weight** selector using real values; changing it swaps the gallery + price.
 - **Price‑compare** UI (compare‑at strike + "Save $X" + savings %).
 - Keep: filters, sort, grid, geo‑currency, WhatsApp enquiry, SRX DIAMONDS branding.
-
-## IMPORTANT content note (for whoever runs this)
-Build all the **features/UX** faithfully. But the product **photographs and description copy on
-Quince are Quince's copyrighted content** — republishing them wholesale on a public SRX
-storefront (name swapped) is a legal risk to the owner (copyright + passing‑off). For anything
-promoted publicly, populate the same engine with **SRX's own / supplier‑licensed photos and
-copy**. Factual specs (carat, metal, dimensions, price) are not copyrightable and transfer fine.
 
 ## Technical starting points (already in this repo/branch)
 - `scrape_variants.py` — current scraper (needs the option‑matrix rework above).
