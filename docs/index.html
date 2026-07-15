@@ -100,6 +100,7 @@
   .pr{font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
   .pr .from{color:var(--muted);font-size:.72rem;margin-right:3px}
   .pr .was{color:var(--faint);text-decoration:line-through;font-size:.78rem;margin-right:5px}
+  .pr .off{color:#3f7d4f;font-size:.72rem;margin-left:5px;white-space:nowrap}
   .rate{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:.78rem;margin-top:5px}
   .rate svg{width:12px;height:12px;color:var(--star)}
   .sw6{display:flex;gap:6px;margin-top:8px}
@@ -126,7 +127,10 @@
   .info .rate{margin:0 0 12px}
   .price{font-size:1.15rem;margin:0 0 18px;font-variant-numeric:tabular-nums}
   .price .was{color:var(--faint);text-decoration:line-through;font-size:.95rem;margin-right:8px}
-  .price .save{color:#3f7d4f;font-size:.82rem;margin-left:8px}
+  .price .save{color:#3f7d4f;font-size:.82rem}
+  .price .pnow{font-size:1.32rem;font-weight:600}
+  .price .pcmp{font-size:.85rem;color:var(--muted);margin-top:4px}
+  .price .pcmp s{color:var(--faint)}
   .orow{margin:0 0 16px}
   .orow .l{font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
   .orow .l b{color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600;margin-left:5px}
@@ -189,6 +193,7 @@
   <div class="toolbar">
     <button class="fbtn" id="fFilter"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M6 12h12M10 18h4"/></svg> Filter</button>
     <button class="fbtn" data-pop="colors">Color <span class="car">▾</span></button>
+    <button class="fbtn" id="caratPill" data-pop="carat"><span class="fl">Carat</span> <span class="car">▾</span></button>
     <button class="fbtn" data-pop="sizes">Size <span class="car">▾</span></button>
     <button class="fbtn" data-pop="materials">Material <span class="car">▾</span></button>
     <button class="fbtn" data-pop="prices">Price Range <span class="car">▾</span></button>
@@ -278,17 +283,22 @@ function pColors(p){var c=colorOpt(p);var out={};if(c)c.values.forEach(function(
 function pSizes(p){for(var i=0;i<(p.options||[]).length;i++)if(p.options[i].name==="Size")return p.options[i].values.map(function(v){return v.label;});return [];}
 function pMaterials(p){return p.materials||["Lab Grown Diamond"];}
 function pBucket(p){var u=minUsd(p);for(var i=0;i<PRICE_BUCKETS.length;i++){var b=PRICE_BUCKETS[i];if(u>=b[1]&&u<b[2])return b[0];}return null;}
+function caratOpt(p){for(var i=0;i<(p.options||[]).length;i++){var n=p.options[i].name;if(n==="Carat"||n==="Center Carat Weight")return p.options[i];}return null;}
+function pCarat(p){var o=caratOpt(p);return o?o.values.map(function(v){return v.label;}):[];}
+function caratRank(s){var m=(""+s).match(/[\d.]+/);return m?parseFloat(m[0]):999;}
 
 function present(fn){var s={};PRODUCTS.forEach(function(p){(Array.isArray(fn(p))?fn(p):[fn(p)]).forEach(function(x){if(x)s[x]=(s[x]||0)+1;});});return s;}
-var HAS_COLOR=present(pColors), HAS_SIZE=present(pSizes), HAS_MAT=present(pMaterials), HAS_PRICE=present(function(p){return pBucket(p);});
+var HAS_COLOR=present(pColors), HAS_SIZE=present(pSizes), HAS_MAT=present(pMaterials), HAS_PRICE=present(function(p){return pBucket(p);}), HAS_CARAT=present(pCarat);
+var CARAT_LABEL=(function(){var named=false,ctw=false;PRODUCTS.forEach(function(p){var o=caratOpt(p);if(o){if(o.name==="Center Carat Weight")ctw=true;else named=true;}});return (ctw&&!named)?"Center Carat Weight":"Carat";})();
 
 /* ---------- state ---------- */
-var F={cat:"All",sort:"featured",q:"",colors:{},sizes:{},materials:{},prices:{}};
-function activeCount(){return Object.keys(F.colors).length+Object.keys(F.sizes).length+Object.keys(F.materials).length+Object.keys(F.prices).length;}
+var F={cat:"All",sort:"featured",q:"",colors:{},carat:{},sizes:{},materials:{},prices:{}};
+function activeCount(){return Object.keys(F.colors).length+Object.keys(F.carat).length+Object.keys(F.sizes).length+Object.keys(F.materials).length+Object.keys(F.prices).length;}
 function matches(p){
   if(F.cat!=="All"&&p.cat!==F.cat)return false;
   if(F.q){var t=(p.name+" "+p.cat).toLowerCase();if(t.indexOf(F.q.toLowerCase())<0)return false;}
   var cs=Object.keys(F.colors);if(cs.length){var pc=pColors(p);if(!cs.some(function(c){return pc.indexOf(c)>=0;}))return false;}
+  var kt=Object.keys(F.carat);if(kt.length){var pk=pCarat(p);if(!kt.some(function(c){return pk.indexOf(c)>=0;}))return false;}
   var ss=Object.keys(F.sizes);if(ss.length){var ps=pSizes(p);if(!ss.some(function(s){return ps.indexOf(s)>=0;}))return false;}
   var ms=Object.keys(F.materials);if(ms.length){var pm=pMaterials(p);if(!ms.some(function(m){return pm.indexOf(m)>=0;}))return false;}
   var bs=Object.keys(F.prices);if(bs.length){if(bs.indexOf(pBucket(p))<0)return false;}
@@ -329,6 +339,8 @@ function cardHTML(p,i){
   var np=p.variants.reduce(function(a,x){return Math.max(a,(x.imgs||[]).length);},0);
   var sw="";if(co&&co.values.length>1)sw='<div class="sw6">'+co.values.slice(0,6).map(function(x,j){return '<span class="s'+(j===0?" on":"")+'" data-ci="'+j+'" title="'+esc(x.label)+'" style="background:'+(x.hex||"#ccc")+'"></span>';}).join("")+'</div>';
   var was=mv.orig?'<span class="was">'+esc(money(mv.orig))+'</span>':'';
+  var pct=(mv.orig&&mv.orig>m)?Math.round((mv.orig-m)/mv.orig*100):0;
+  var off=pct?' <span class="off">'+pct+'% off</span>':'';
   var rate=p.rating?'<div class="rate">'+STAR+esc(p.rating.toFixed(1))+(p.reviews?' <span style="color:var(--faint)">('+p.reviews+')</span>':'')+'</div>':'';
   var metal=metalOf(v);var metalHTML=metal?'<div class="metal" data-metal>'+esc(metal)+'</div>':'<div class="metal" data-metal style="display:none"></div>';
   return '<article class="card" data-i="'+i+'">'+
@@ -337,7 +349,7 @@ function cardHTML(p,i){
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9C1 9 2.5 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.5 0 5 3.5 3.5 6.5C19 16.5 12 21 12 21z"/></svg></button>'+
       (np>1?'<span class="tag">'+np+' photos</span>':'')+'</div>'+
     '<div class="meta">'+metalHTML+
-      '<div class="nr"><div class="nm">'+esc(p.name)+'</div><div class="pr">'+(multi?'<span class="from">from</span>':'')+was+esc(money(m))+'</div></div>'+
+      '<div class="nr"><div class="nm">'+esc(p.name)+'</div><div class="pr">'+(multi?'<span class="from">from</span>':'')+was+esc(money(m))+off+'</div></div>'+
       rate+sw+'</div></article>';
 }
 function render(){
@@ -365,7 +377,7 @@ grid.addEventListener("click",function(e){
 /* ---------- chips ---------- */
 function renderChips(){
   var box=document.getElementById("chips");var out=[];
-  ["colors","sizes","materials","prices"].forEach(function(k){Object.keys(F[k]).forEach(function(v){out.push('<span class="chip">'+esc(v)+'<button data-ck="'+k+'" data-cv="'+esc(v)+'">✕</button></span>');});});
+  ["colors","carat","sizes","materials","prices"].forEach(function(k){Object.keys(F[k]).forEach(function(v){out.push('<span class="chip">'+esc(v)+'<button data-ck="'+k+'" data-cv="'+esc(v)+'">✕</button></span>');});});
   if(F.q)out.push('<span class="chip">“'+esc(F.q)+'”<button data-clearq>✕</button></span>');
   box.innerHTML=out.join("");
 }
@@ -380,6 +392,7 @@ function groupOptions(kind){
   if(kind==="materials")return '<div class="fopts">'+MATERIAL_ORDER.filter(function(m){return HAS_MAT[m];}).map(function(m){return '<button class="fopt'+(F.materials[m]?" on":"")+'" data-group="materials" data-v="'+esc(m)+'"><span class="fbox"></span><span class="flab">'+esc(m)+'</span><span class="fcnt">'+HAS_MAT[m]+'</span></button>';}).join("")+'</div>';
   if(kind==="prices")return '<div class="fopts">'+PRICE_BUCKETS.filter(function(b){return HAS_PRICE[b[0]];}).map(function(b){return '<button class="fopt'+(F.prices[b[0]]?" on":"")+'" data-group="prices" data-v="'+esc(b[0])+'"><span class="fbox"></span><span class="flab">'+esc(b[0])+'</span><span class="fcnt">'+HAS_PRICE[b[0]]+'</span></button>';}).join("")+'</div>';
   if(kind==="sizes"){var sz=Object.keys(HAS_SIZE).sort(function(a,b){return sizeRank(a)-sizeRank(b);});return '<div class="sizewrap">'+sz.map(function(s){return '<button class="sizecell'+(F.sizes[s]?" on":"")+'" data-group="sizes" data-v="'+esc(s)+'">'+esc(s)+'</button>';}).join("")+'</div>';}
+  if(kind==="carat"){var ct=Object.keys(HAS_CARAT).sort(function(a,b){return caratRank(a)-caratRank(b);});return '<div class="fopts">'+ct.map(function(c){return '<button class="fopt'+(F.carat[c]?" on":"")+'" data-group="carat" data-v="'+esc(c)+'"><span class="fbox"></span><span class="flab">'+esc(c)+'</span><span class="fcnt">'+HAS_CARAT[c]+'</span></button>';}).join("")+'</div>';}
   return "";
 }
 function toggleFilter(g,v){if(F[g][v])delete F[g][v];else F[g][v]=1;}
@@ -390,7 +403,7 @@ function onFilterClick(e){var el=e.target.closest("[data-group][data-v]");if(!el
 var panel=document.getElementById("popPanel"),openPop=null;
 function buildPop(kind){
   if(!kind){panel.classList.remove("open");return;}
-  var title={colors:"Color",sizes:"Size",materials:"Material",prices:"Price Range"}[kind];
+  var title={colors:"Color",carat:CARAT_LABEL,sizes:"Size",materials:"Material",prices:"Price Range"}[kind];
   panel.innerHTML='<h4>'+title+'</h4>'+groupOptions(kind)+
     '<div class="popfoot"><button class="lnk" data-clear="'+kind+'">Clear</button><button class="applybtn" data-apply>View ('+filtered().length+')</button></div>';
   panel.classList.add("open");
@@ -407,8 +420,10 @@ window.addEventListener("scroll",function(){if(openPop){openPop=null;buildPop(nu
 
 /* ---------- filter drawer ---------- */
 var drawer=document.getElementById("drawer"),drawerOv=document.getElementById("drawerOv"),drawerBd=document.getElementById("drawerBd"),drawerOpen=false;
+var GKEYS={colors:HAS_COLOR,carat:HAS_CARAT,sizes:HAS_SIZE,materials:HAS_MAT,prices:HAS_PRICE};
 function buildDrawer(){
-  var groups=[["colors","Color"],["sizes","Size"],["materials","Material"],["prices","Price Range"]];
+  var groups=[["colors","Color"],["carat",CARAT_LABEL],["sizes","Size"],["materials","Material"],["prices","Price Range"]]
+    .filter(function(g){return Object.keys(GKEYS[g[0]]).length;});
   drawerBd.innerHTML=groups.map(function(g){return '<div class="dgroup"><h4>'+g[1]+'</h4>'+groupOptions(g[0])+'</div>';}).join("");
   document.getElementById("drawerView").textContent="View ("+filtered().length+")";
 }
@@ -418,9 +433,9 @@ drawerBd.addEventListener("click",onFilterClick);
 document.getElementById("drawerClose").addEventListener("click",closeDrawer);
 drawerOv.addEventListener("click",closeDrawer);
 document.getElementById("drawerView").addEventListener("click",closeDrawer);
-document.getElementById("drawerClear").addEventListener("click",function(){F.colors={};F.sizes={};F.materials={};F.prices={};buildDrawer();render();});
+document.getElementById("drawerClear").addEventListener("click",function(){F.colors={};F.carat={};F.sizes={};F.materials={};F.prices={};buildDrawer();render();});
 document.getElementById("fFilter").addEventListener("click",function(e){e.stopPropagation();openDrawer();});
-document.getElementById("clearAll").addEventListener("click",function(){F.colors={};F.sizes={};F.materials={};F.prices={};F.q="";document.getElementById("q").value="";render();});
+document.getElementById("clearAll").addEventListener("click",function(){F.colors={};F.carat={};F.sizes={};F.materials={};F.prices={};F.q="";document.getElementById("q").value="";render();});
 
 /* ---------- PDP ---------- */
 var lb=document.getElementById("lb"),LP=null,LSEL={},LIMGS=[],LCUR=0;
@@ -435,9 +450,10 @@ function applyVariant(){
   gshow(0);
   var msel={};for(var mk in v.sel)msel[mk]=v.sel[mk];for(var lk in LSEL)msel[lk]=LSEL[lk];
   var pr=v.usd!=null?money(v.usd):"Enquire for price";
-  var was=v.orig?'<span class="was">'+esc(money(v.orig))+'</span>':'';
-  var save=v.orig&&v.usd?'<span class="save">Save '+esc(money(v.orig-v.usd))+'</span>':'';
-  document.getElementById("pprice").innerHTML=was+esc(pr)+save;
+  var cmp="";
+  if(v.orig&&v.usd&&v.orig>v.usd){var pct=Math.round((v.orig-v.usd)/v.orig*100);
+    cmp='<div class="pcmp">Compare at <s>'+esc(money(v.orig))+'</s> · <span class="save">Save '+esc(money(v.orig-v.usd))+(pct?' ('+pct+'% off)':'')+'</span></div>';}
+  document.getElementById("pprice").innerHTML='<div class="pnow">'+esc(pr)+'</div>'+cmp;
   var cta=document.getElementById("pcta");cta.innerHTML=WA+"Enquire on WhatsApp";cta.onclick=function(){window.open(waLink(LP,msel,v.usd),"_blank");};
 }
 function buildOpts(){
@@ -494,6 +510,7 @@ var waMsg="https://wa.me/"+WHATSAPP+"?text="+encodeURIComponent("Hello "+BRAND+"
 document.getElementById("waTop").addEventListener("click",function(){window.open(waMsg,"_blank");});
 document.getElementById("fwa").href=waMsg;
 document.getElementById("curLbl").textContent=cur;
+(function(){var cp=document.getElementById("caratPill");if(!cp)return;if(Object.keys(HAS_CARAT).length){cp.querySelector(".fl").textContent=CARAT_LABEL;}else{cp.style.display="none";}})();
 /* keep the sticky filter bar docked just under the (variable-height) header */
 function fixStick(){var h=document.querySelector("header.site").offsetHeight;document.querySelector(".toolbar").style.top=h+"px";}
 window.addEventListener("resize",fixStick);
