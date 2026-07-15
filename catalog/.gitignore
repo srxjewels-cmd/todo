@@ -1,0 +1,3 @@
+# generated artifacts (regenerate with: python catalog/make_sample.py + build)
+photos/
+index.html

@@ -1,0 +1,480 @@
+[
+ {
+  "id": "SRX-001",
+  "cat": "Engagement Rings",
+  "name": "Round Solitaire Engagement Ring",
+  "details": "- Lab grown diamond, D-F colour, VS clarity\n- Solid 14K gold or platinum band\n- Center Carat Weight selectable 1-3 ct\n- Handcrafted; ships in 2-3 weeks",
+  "rating": 4.9,
+  "reviews": 214,
+  "materials": [
+   "Lab Grown Diamond",
+   "14k Gold",
+   "Platinum"
+  ],
+  "options": [
+   {
+    "name": "Color",
+    "type": "swatch",
+    "values": [
+     {
+      "label": "Yellow Gold",
+      "hex": "#E6C46A",
+      "q": "Yellow"
+     },
+     {
+      "label": "White Gold",
+      "hex": "#E5E5E8",
+      "q": "White"
+     },
+     {
+      "label": "Platinum",
+      "hex": "#D8D8DE",
+      "q": "Grey"
+     }
+    ]
+   },
+   {
+    "name": "Center Carat Weight",
+    "type": "select",
+    "values": [
+     {
+      "label": "1"
+     },
+     {
+      "label": "1.5"
+     },
+     {
+      "label": "2"
+     },
+     {
+      "label": "3"
+     }
+    ]
+   },
+   {
+    "name": "Size",
+    "type": "select",
+    "values": [
+     {
+      "label": "4"
+     },
+     {
+      "label": "4.5"
+     },
+     {
+      "label": "5"
+     },
+     {
+      "label": "5.5"
+     },
+     {
+      "label": "6"
+     },
+     {
+      "label": "6.5"
+     },
+     {
+      "label": "7"
+     },
+     {
+      "label": "7.5"
+     },
+     {
+      "label": "8"
+     },
+     {
+      "label": "8.5"
+     },
+     {
+      "label": "9"
+     },
+     {
+      "label": "9.5"
+     },
+     {
+      "label": "10"
+     }
+    ]
+   }
+  ],
+  "variants": [
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Center Carat Weight": "1"
+    },
+    "usd": 1200,
+    "orig": 2880,
+    "imgs": [
+     "photos/SRX-001/yellow-gold-1/1.jpg",
+     "photos/SRX-001/yellow-gold-1/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/yellow-gold-1/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Center Carat Weight": "1.5"
+    },
+    "usd": 2100,
+    "orig": 5040,
+    "imgs": [
+     "photos/SRX-001/yellow-gold-1_5/1.jpg",
+     "photos/SRX-001/yellow-gold-1_5/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/yellow-gold-1_5/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Center Carat Weight": "2"
+    },
+    "usd": 3000,
+    "orig": 7200,
+    "imgs": [
+     "photos/SRX-001/yellow-gold-2/1.jpg",
+     "photos/SRX-001/yellow-gold-2/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/yellow-gold-2/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Center Carat Weight": "3"
+    },
+    "usd": 3900,
+    "orig": 9360,
+    "imgs": [
+     "photos/SRX-001/yellow-gold-3/1.jpg",
+     "photos/SRX-001/yellow-gold-3/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/yellow-gold-3/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Center Carat Weight": "1"
+    },
+    "usd": 1200,
+    "orig": 2880,
+    "imgs": [
+     "photos/SRX-001/white-gold-1/1.jpg",
+     "photos/SRX-001/white-gold-1/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/white-gold-1/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Center Carat Weight": "1.5"
+    },
+    "usd": 2100,
+    "orig": 5040,
+    "imgs": [
+     "photos/SRX-001/white-gold-1_5/1.jpg",
+     "photos/SRX-001/white-gold-1_5/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/white-gold-1_5/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Center Carat Weight": "2"
+    },
+    "usd": 3000,
+    "orig": 7200,
+    "imgs": [
+     "photos/SRX-001/white-gold-2/1.jpg",
+     "photos/SRX-001/white-gold-2/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/white-gold-2/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Center Carat Weight": "3"
+    },
+    "usd": 3900,
+    "orig": 9360,
+    "imgs": [
+     "photos/SRX-001/white-gold-3/1.jpg",
+     "photos/SRX-001/white-gold-3/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/white-gold-3/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Platinum",
+     "Center Carat Weight": "1"
+    },
+    "usd": 1200,
+    "orig": 2880,
+    "imgs": [
+     "photos/SRX-001/platinum-1/1.jpg",
+     "photos/SRX-001/platinum-1/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/platinum-1/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Platinum",
+     "Center Carat Weight": "1.5"
+    },
+    "usd": 2100,
+    "orig": 5040,
+    "imgs": [
+     "photos/SRX-001/platinum-1_5/1.jpg",
+     "photos/SRX-001/platinum-1_5/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/platinum-1_5/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Platinum",
+     "Center Carat Weight": "2"
+    },
+    "usd": 3000,
+    "orig": 7200,
+    "imgs": [
+     "photos/SRX-001/platinum-2/1.jpg",
+     "photos/SRX-001/platinum-2/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/platinum-2/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Platinum",
+     "Center Carat Weight": "3"
+    },
+    "usd": 3900,
+    "orig": 9360,
+    "imgs": [
+     "photos/SRX-001/platinum-3/1.jpg",
+     "photos/SRX-001/platinum-3/2.jpg"
+    ],
+    "thumb": "photos/SRX-001/platinum-3/1_t.jpg"
+   }
+  ]
+ },
+ {
+  "id": "SRX-002",
+  "cat": "Necklaces",
+  "name": "Lab Grown Diamond Tennis Necklace",
+  "details": "- Continuous line of lab grown diamonds\n- 14K gold, secure box clasp\n- Total carat weight selectable\n- 16\" length",
+  "rating": 4.8,
+  "reviews": 96,
+  "materials": [
+   "Lab Grown Diamond",
+   "14k Gold"
+  ],
+  "options": [
+   {
+    "name": "Color",
+    "type": "swatch",
+    "values": [
+     {
+      "label": "Yellow Gold",
+      "hex": "#E6C46A",
+      "q": "Yellow"
+     },
+     {
+      "label": "White Gold",
+      "hex": "#E5E5E8",
+      "q": "White"
+     }
+    ]
+   },
+   {
+    "name": "Carat",
+    "type": "select",
+    "values": [
+     {
+      "label": "3"
+     },
+     {
+      "label": "5"
+     },
+     {
+      "label": "7"
+     }
+    ]
+   }
+  ],
+  "variants": [
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Carat": "3"
+    },
+    "usd": 1900,
+    "orig": 4750,
+    "imgs": [
+     "photos/SRX-002/yellow-gold-3/1.jpg",
+     "photos/SRX-002/yellow-gold-3/2.jpg"
+    ],
+    "thumb": "photos/SRX-002/yellow-gold-3/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Carat": "5"
+    },
+    "usd": 2600,
+    "orig": 6500,
+    "imgs": [
+     "photos/SRX-002/yellow-gold-5/1.jpg",
+     "photos/SRX-002/yellow-gold-5/2.jpg"
+    ],
+    "thumb": "photos/SRX-002/yellow-gold-5/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Carat": "7"
+    },
+    "usd": 3300,
+    "orig": 8250,
+    "imgs": [
+     "photos/SRX-002/yellow-gold-7/1.jpg",
+     "photos/SRX-002/yellow-gold-7/2.jpg"
+    ],
+    "thumb": "photos/SRX-002/yellow-gold-7/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Carat": "3"
+    },
+    "usd": 1900,
+    "orig": 4750,
+    "imgs": [
+     "photos/SRX-002/white-gold-3/1.jpg",
+     "photos/SRX-002/white-gold-3/2.jpg"
+    ],
+    "thumb": "photos/SRX-002/white-gold-3/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Carat": "5"
+    },
+    "usd": 2600,
+    "orig": 6500,
+    "imgs": [
+     "photos/SRX-002/white-gold-5/1.jpg",
+     "photos/SRX-002/white-gold-5/2.jpg"
+    ],
+    "thumb": "photos/SRX-002/white-gold-5/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Carat": "7"
+    },
+    "usd": 3300,
+    "orig": 8250,
+    "imgs": [
+     "photos/SRX-002/white-gold-7/1.jpg",
+     "photos/SRX-002/white-gold-7/2.jpg"
+    ],
+    "thumb": "photos/SRX-002/white-gold-7/1_t.jpg"
+   }
+  ]
+ },
+ {
+  "id": "SRX-003",
+  "cat": "Earrings",
+  "name": "Lab Grown Diamond Solitaire Studs",
+  "details": "- Classic four-prong studs\n- 14K gold, screw-back posts\n- Sold as a pair",
+  "rating": 5.0,
+  "reviews": 41,
+  "materials": [
+   "Lab Grown Diamond",
+   "14k Gold"
+  ],
+  "options": [
+   {
+    "name": "Color",
+    "type": "swatch",
+    "values": [
+     {
+      "label": "Yellow Gold",
+      "hex": "#E6C46A",
+      "q": "Yellow"
+     },
+     {
+      "label": "White Gold",
+      "hex": "#E5E5E8",
+      "q": "White"
+     }
+    ]
+   },
+   {
+    "name": "Center Carat Weight",
+    "type": "select",
+    "values": [
+     {
+      "label": "1"
+     },
+     {
+      "label": "2"
+     }
+    ]
+   }
+  ],
+  "variants": [
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Center Carat Weight": "1"
+    },
+    "usd": 700,
+    "orig": 1609,
+    "imgs": [
+     "photos/SRX-003/yellow-gold-1/1.jpg",
+     "photos/SRX-003/yellow-gold-1/2.jpg"
+    ],
+    "thumb": "photos/SRX-003/yellow-gold-1/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "Yellow Gold",
+     "Center Carat Weight": "2"
+    },
+    "usd": 1300,
+    "orig": 2989,
+    "imgs": [
+     "photos/SRX-003/yellow-gold-2/1.jpg",
+     "photos/SRX-003/yellow-gold-2/2.jpg"
+    ],
+    "thumb": "photos/SRX-003/yellow-gold-2/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Center Carat Weight": "1"
+    },
+    "usd": 700,
+    "orig": 1609,
+    "imgs": [
+     "photos/SRX-003/white-gold-1/1.jpg",
+     "photos/SRX-003/white-gold-1/2.jpg"
+    ],
+    "thumb": "photos/SRX-003/white-gold-1/1_t.jpg"
+   },
+   {
+    "sel": {
+     "Color": "White Gold",
+     "Center Carat Weight": "2"
+    },
+    "usd": 1300,
+    "orig": 2989,
+    "imgs": [
+     "photos/SRX-003/white-gold-2/1.jpg",
+     "photos/SRX-003/white-gold-2/2.jpg"
+    ],
+    "thumb": "photos/SRX-003/white-gold-2/1_t.jpg"
+   }
+  ]
+ }
+]
