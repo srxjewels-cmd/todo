@@ -126,7 +126,6 @@
   .info h2{font-family:var(--serif);font-weight:500;font-size:1.5rem;margin:6px 0 8px;line-height:1.2}
   .info .rate{margin:0 0 12px}
   .price{font-size:1.15rem;margin:0 0 18px;font-variant-numeric:tabular-nums}
-  .price .was{color:var(--faint);text-decoration:line-through;font-size:.95rem;margin-right:8px}
   .price .save{color:#3f7d4f;font-size:.82rem}
   .price .pnow{font-size:1.32rem;font-weight:600}
   .price .pcmp{font-size:.85rem;color:var(--muted);margin-top:4px}
@@ -338,8 +337,9 @@ function cardHTML(p,i){
   var v=firstVar(p),mv=minVar(p),m=mv.usd,multi=variesInPrice(p),co=colorOpt(p);
   var np=p.variants.reduce(function(a,x){return Math.max(a,(x.imgs||[]).length);},0);
   var sw="";if(co&&co.values.length>1)sw='<div class="sw6">'+co.values.slice(0,6).map(function(x,j){return '<span class="s'+(j===0?" on":"")+'" data-ci="'+j+'" title="'+esc(x.label)+'" style="background:'+(x.hex||"#ccc")+'"></span>';}).join("")+'</div>';
-  var was=mv.orig?'<span class="was">'+esc(money(mv.orig))+'</span>':'';
-  var pct=(mv.orig&&mv.orig>m)?Math.round((mv.orig-m)/mv.orig*100):0;
+  var disc=(mv.orig!=null&&m!=null&&mv.orig>m);
+  var was=disc?'<span class="was">'+esc(money(mv.orig))+'</span>':'';
+  var pct=disc?Math.round((mv.orig-m)/mv.orig*100):0;
   var off=pct?' <span class="off">'+pct+'% off</span>':'';
   var rate=p.rating?'<div class="rate">'+STAR+esc(p.rating.toFixed(1))+(p.reviews?' <span style="color:var(--faint)">('+p.reviews+')</span>':'')+'</div>':'';
   var metal=metalOf(v);var metalHTML=metal?'<div class="metal" data-metal>'+esc(metal)+'</div>':'<div class="metal" data-metal style="display:none"></div>';
