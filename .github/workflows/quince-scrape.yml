@@ -20,7 +20,9 @@ jobs:
         if: ${{ inputs.scrape }}
         run: python scrape_variants.py
       - name: Build storefront
-        run: python build_quince_shop.py shopdata/variants.json --out /tmp/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
+        run: |
+          python apply_ring_carats.py shopdata/variants.json catalog/ring_carats.csv --out /tmp/enriched.json
+          python build_quince_shop.py /tmp/enriched.json --out /tmp/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
       - name: Report
         run: |
           echo "photos $(find docs/photos -type f 2>/dev/null | wc -l) files"
@@ -30,7 +32,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if [ "${{ inputs.scrape }}" = "true" ]; then
             cp /tmp/index.html docs/index.html
-            cp shopdata/variants.json docs/variants.json
+            cp /tmp/enriched.json docs/variants.json
             touch docs/.nojekyll
             git checkout --orphan pages-tmp
             git rm -rf --cached . >/dev/null 2>&1 || true
