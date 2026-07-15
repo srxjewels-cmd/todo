@@ -3,100 +3,45 @@ on:
   workflow_dispatch:
     inputs:
       scrape:
-        description: 'Re-scrape Quince (else rebuild page from committed variants.json)'
+        description: 'Re-scrape Quince (else rebuild page from committed shopdata/variants.json, keeping existing photos)'
         type: boolean
         default: false
 permissions:
-  contents: read
+  contents: write
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: pip install --quiet requests
-      - name: Probe carat + facets + category structure
+      - run: pip install --quiet requests pillow
+      - name: Scrape Quince (optional)
+        if: ${{ inputs.scrape }}
+        run: python scrape_variants.py
+      - name: Build storefront
+        run: python build_quince_shop.py shopdata/variants.json --out /tmp/index.html --brand "SRX DIAMONDS" --whatsapp 919723891732
+      - name: Report
+        run: echo "photos: $(find docs/photos -type f 2>/dev/null | wc -l) files"
+      - name: Publish to shop-pages
         run: |
-          python - <<'PY'
-          import re, json, requests
-          UA=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
-          S=requests.Session(); S.headers.update({"User-Agent":UA,"Referer":"https://www.quince.com/"})
-          def get(u):
-              try: return S.get(u,timeout=45).text
-              except Exception as e: return ""
-          def nd(h):
-              m=re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',h,re.S)
-              try: return json.loads(m.group(1)) if m else None
-              except Exception: return None
-
-          # 1) discover category nav hrefs (lab-grown / engagement)
-          d=nd(get("https://www.quince.com/shop/jewelry"))
-          s=json.dumps(d) if d else ""
-          links=sorted(set(re.findall(r'"(/shop/[a-z0-9/\-]*(?:lab-grown|engagement|jewelry)[a-z0-9/\-]*)"', s)))
-          print("NAV LINKS (jewelry/lab/engagement):")
-          for m in links[:40]: print("  ",m)
-
-          def facets(url):
-              d=nd(get(url));
-              if not d: print("   (no data)"); return
-              found=[None]
-              def walk(o):
-                  if isinstance(o,dict):
-                      if o.get("id")=="filter" and isinstance(o.get("options"),list): found[0]=o
-                      for v in o.values(): walk(v)
-                  elif isinstance(o,list):
-                      for v in o: walk(v)
-              walk(d)
-              if found[0]:
-                  for g in found[0]["options"]:
-                      vals=[(x.get("displayName") or x.get("id")) for x in (g.get("options") or [])][:14]
-                      print("   FACET:",g.get("displayName"),"| id=",g.get("id"),"|",vals)
-              else: print("   (no filter facets found)")
-
-          for url in ["https://www.quince.com/shop/women/jewelry/rings-all?filter=materials%3DLab%2520Grown%2520Diamond",
-                      "https://www.quince.com/shop/women/jewelry/engagement-rings",
-                      "https://www.quince.com/shop/women/jewelry/necklaces-all/lab-grown-diamond-necklaces"]:
-              print("\n== FACETS:",url); facets(url)
-
-          # 2) engagement-ring PDP option structure
-          def probe(slug):
-              d=nd(get("https://www.quince.com/"+slug.lstrip("/")))
-              try: p=d["props"]["pageProps"]["pageData"]["context"]["pageDataJson"]["product"]
-              except Exception: print("   (no product)"); return
-              print("   TITLE:",p.get("title"))
-              po=p.get("productOptions")
-              print("   productOptions:",json.dumps(po)[:700])
-              print("   new_color_options:",json.dumps([{ "v":c.get("value"),"hex":c.get("hexCode")} for c in (p.get("new_color_options") or [])])[:260])
-              vs=p.get("variants") or []
-              print("   #variants:",len(vs))
-              for v in vs[:5]:
-                  pr=v.get("price"); amt=pr.get("amount") if isinstance(pr,dict) else pr
-                  tr=v.get("traditionalRetailPrice"); tamt=tr.get("amount") if isinstance(tr,dict) else tr
-                  print("     opts:",json.dumps(v.get("options")),"| price:",amt,"| compareAt:",tamt)
-              tags={}
-              for im in (p.get("images") or []):
-                  for o in im.get("options",[]):
-                      tags.setdefault(o.get("name"),set()).update(o.get("values",[]))
-              print("   image option tags:",{k:list(v)[:6] for k,v in tags.items()},"| #images:",len(p.get("images") or []))
-
-          d2=nd(get("https://www.quince.com/shop/women/jewelry/rings-all?filter=materials%3DLab%2520Grown%2520Diamond"))
-          slugs=[]
-          def walk2(o):
-              if isinstance(o,dict):
-                  sl=o.get("slug")
-                  if sl and (o.get("productDomainTypes") or o.get("spid")) and "diamond" in sl:
-                      slugs.append(sl)
-                  for v in o.values(): walk2(v)
-              elif isinstance(o,list):
-                  for v in o: walk2(v)
-          if d2: walk2(d2)
-          uniq=[]
-          for x in slugs:
-              if x not in uniq: uniq.append(x)
-          print("\nRING slugs found:",len(uniq))
-          eng=[x for x in uniq if any(k in x for k in ["engagement","cathedral","solitaire","pave","cushion","emerald","oval","round","marquise","pear","princess"])]
-          print("sample ring slugs:",uniq[:8])
-          for sl in (eng[:3] or uniq[:3]):
-              print("\n== PDP:",sl); probe(sl)
-          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ "${{ inputs.scrape }}" = "true" ]; then
+            cp /tmp/index.html docs/index.html
+            cp shopdata/variants.json docs/variants.json
+            touch docs/.nojekyll
+            git checkout --orphan pages-tmp
+            git rm -rf --cached . >/dev/null 2>&1 || true
+            git add -f docs
+            git commit -m "Rebuild Quince-style storefront (re-scraped)"
+            git push -f origin pages-tmp:claude/shop-pages
+          else
+            git fetch origin claude/shop-pages
+            git checkout -B shoppages origin/claude/shop-pages
+            cp /tmp/index.html docs/index.html
+            touch docs/.nojekyll
+            git add docs/index.html docs/.nojekyll
+            git commit -m "Rebuild storefront page"
+            git push origin shoppages:claude/shop-pages
+          fi
