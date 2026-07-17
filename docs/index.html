@@ -527,3 +527,176 @@ render();fixStick();                                   /* paint immediately with
 loadRates(function(){render();fixStick();});          /* then refine once live rates load */
 detect();
 </script>
+
+<!-- ===== SRX WhatsApp conversion layer — appended; nothing above this line is modified =====
+     The page converts through WhatsApp enquiry. This ADDS a bag so several pieces can be
+     ordered in one chat: add-to-bag on the PDP, a drawer, and a WhatsApp checkout that hands
+     the bag to the chat. The existing per-piece "Enquire on WhatsApp" CTA is untouched.
+     Number comes from the page's own WHATSAPP constant (single source of truth). -->
+<style>
+  .srx-bagbtn{position:relative}
+  .srx-badge{position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--ink);color:#fff;font-size:.62rem;line-height:16px;text-align:center;font-weight:700}
+  .srx-ov{position:fixed;inset:0;background:rgba(20,18,14,.42);z-index:70;opacity:0;pointer-events:none;transition:opacity .2s}
+  .srx-ov.on{opacity:1;pointer-events:auto}
+  /* above the PDP lightbox (z-index 60) so the bag works while a piece is open */
+  .srx-bag{position:fixed;top:0;right:0;height:100%;width:380px;max-width:92vw;background:#fff;z-index:75;transform:translateX(100%);transition:transform .24s ease;display:flex;flex-direction:column;box-shadow:-12px 0 44px -22px rgba(0,0,0,.45)}
+  .srx-bag.on{transform:none}
+  .srx-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .srx-hd b{font-family:var(--serif);font-size:1.08rem;font-weight:400}
+  .srx-x{background:0;border:0;font-size:1.5rem;line-height:1;cursor:pointer;color:var(--muted)}
+  .srx-bd{flex:1;overflow:auto;padding:6px 18px}
+  .srx-empty{color:var(--muted);text-align:center;padding:48px 0;font-size:.9rem}
+  .srx-ci{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .srx-im{width:64px;height:64px;flex:0 0 64px;background:var(--panel);border-radius:8px;overflow:hidden}
+  .srx-im img{width:100%;height:100%;object-fit:cover;display:block}
+  .srx-inf{flex:1;min-width:0}
+  .srx-t{font-size:.86rem;line-height:1.3}
+  .srx-m{color:var(--muted);font-size:.74rem;margin:3px 0 8px}
+  .srx-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .srx-qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px}
+  .srx-qty button{width:26px;height:26px;background:0;border:0;cursor:pointer;font-size:.95rem;color:var(--ink)}
+  .srx-qty span{min-width:20px;text-align:center;font-size:.8rem}
+  .srx-row b{font-size:.86rem}
+  .srx-rm{background:0;border:0;padding:6px 0 0;color:var(--muted);font-size:.72rem;text-decoration:underline;cursor:pointer}
+  .srx-ft{border-top:1px solid var(--line);padding:16px 18px}
+  .srx-sub{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:.9rem}
+  .srx-wa{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:#25D366;color:#fff;border:0;border-radius:999px;padding:14px;font:inherit;font-weight:600;font-size:.95rem;cursor:pointer}
+  .srx-wa:hover{background:#1EBE5A}
+  .srx-wa svg{width:19px;height:19px}
+  .srx-note{color:var(--muted);font-size:.7rem;text-align:center;margin-top:9px;line-height:1.4}
+  .srx-add{display:flex;align-items:center;justify-content:center;width:100%;background:0;color:var(--ink);border:1px solid var(--ink);border-radius:999px;padding:14px;font:inherit;font-weight:600;font-size:.95rem;cursor:pointer;margin:0 0 8px}
+  .srx-add:hover{background:var(--ink);color:#fff}
+  .srx-add:disabled{border-color:var(--line);color:var(--faint);background:0;cursor:default}
+  .srx-fab{position:fixed;right:18px;bottom:18px;z-index:45;width:54px;height:54px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 26px -8px rgba(0,0,0,.4);cursor:pointer}
+  .srx-fab:hover{background:#1EBE5A}
+  .srx-fab svg{width:27px;height:27px}
+  @media(max-width:560px){.srx-fab{right:14px;bottom:14px;width:50px;height:50px}}
+</style>
+<script>
+(function(){
+  "use strict";
+  if(window.__SRX_BAG__)return;window.__SRX_BAG__=1;
+
+  var NUM=String(typeof WHATSAPP!=="undefined"&&WHATSAPP?WHATSAPP:"").replace(/\D/g,"");
+  var GLYPH=(typeof WA!=="undefined"&&WA)?WA:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 00-8.6 15l-1.3 4.7L6.9 20.4A10 10 0 1012 2z"/></svg>';
+  var BAG=[];
+
+  /* empty NUM falls back to WhatsApp's share picker, so the flow stays demoable */
+  function waHref(t){return (NUM?"https://wa.me/"+NUM+"?text=":"https://wa.me/?text=")+encodeURIComponent(t);}
+  function usd(n){return "$"+Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
+  /* mirrors waLink()'s convention: quote the viewer's currency, carry USD alongside when it
+     isn't USD — converted rates are live and approximate, the USD figure is the catalog price */
+  function fmt(n){
+    var m=(typeof money==="function")?money(n):usd(n);
+    return m+(typeof cur!=="undefined"&&cur!=="USD"?" (approx, ≈ "+usd(n)+")":"");
+  }
+  function esc2(s){return typeof esc==="function"?esc(s):String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  /* mirrors applyVariant(): variant's own sel, overlaid with the shopper's picks */
+  function selOf(v){var m={},k;for(k in v.sel)m[k]=v.sel[k];for(k in LSEL)m[k]=LSEL[k];return m;}
+  function optsLine(o){var p=[],k;for(k in o){if(o[k])p.push(k+": "+o[k]);}return p.join(" | ");}
+  function count(){return BAG.reduce(function(a,i){return a+i.qty;},0);}
+  function total(){return BAG.reduce(function(a,i){return a+i.qty*i.price;},0);}
+
+  var ov=document.createElement("div");ov.className="srx-ov";
+  var bag=document.createElement("aside");bag.className="srx-bag";bag.setAttribute("aria-label","Bag");
+  bag.innerHTML='<div class="srx-hd"><b id="srxTitle">Your bag</b><button class="srx-x" id="srxX" aria-label="Close bag">&times;</button></div>'+
+    '<div class="srx-bd" id="srxBd"></div>'+
+    '<div class="srx-ft" id="srxFt"><div class="srx-sub"><span>Subtotal</span><b id="srxTot">$0.00</b></div>'+
+    '<button class="srx-wa" id="srxCo" type="button">'+GLYPH+'<span>Checkout on WhatsApp</span></button>'+
+    '<div class="srx-note">Checkout opens WhatsApp with your bag — we confirm sizing, payment, and delivery in the chat.</div></div>';
+  document.body.appendChild(ov);document.body.appendChild(bag);
+
+  var fab=document.createElement("a");fab.className="srx-fab";fab.target="_blank";fab.rel="noopener";
+  fab.href=waHref("Hello SRX Jewels! I have a question about a piece.");
+  fab.setAttribute("aria-label","Chat with us on WhatsApp");fab.innerHTML=GLYPH;
+  document.body.appendChild(fab);
+
+  function openBag(){paint();ov.classList.add("on");bag.classList.add("on");}
+  function closeBag(){ov.classList.remove("on");bag.classList.remove("on");}
+  ov.addEventListener("click",closeBag);
+  document.getElementById("srxX").addEventListener("click",closeBag);
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&bag.classList.contains("on"))closeBag();});
+
+  function paint(){
+    var n=count(),badge=document.getElementById("srxBadge");
+    if(badge){badge.hidden=!n;badge.textContent=n;}
+    document.getElementById("srxTitle").textContent=n?"Your bag ("+n+")":"Your bag";
+    var bd=document.getElementById("srxBd"),ft=document.getElementById("srxFt");
+    if(!BAG.length){bd.innerHTML='<div class="srx-empty">Your bag is empty.</div>';ft.style.display="none";return;}
+    ft.style.display="";
+    bd.innerHTML=BAG.map(function(it,i){
+      return '<div class="srx-ci">'+(it.thumb?'<div class="srx-im"><img src="'+esc2(it.thumb)+'" alt=""></div>':"")+
+        '<div class="srx-inf"><div class="srx-t">'+esc2(it.name)+'</div>'+
+        '<div class="srx-m">'+esc2(optsLine(it.opts))+'</div>'+
+        '<div class="srx-row"><span class="srx-qty">'+
+        '<button data-q="-1" data-i="'+i+'" aria-label="Decrease quantity">&minus;</button><span>'+it.qty+'</span>'+
+        '<button data-q="1" data-i="'+i+'" aria-label="Increase quantity">+</button></span><b>'+esc2(money(it.price*it.qty))+'</b></div>'+
+        '<button class="srx-rm" data-rm="'+i+'">Remove</button></div></div>';
+    }).join("");
+    document.getElementById("srxTot").textContent=money(total());
+  }
+
+  document.getElementById("srxBd").addEventListener("click",function(e){
+    var q=e.target.closest("[data-q]"),rm=e.target.closest("[data-rm]");
+    if(q){var i=+q.getAttribute("data-i");BAG[i].qty+=+q.getAttribute("data-q");if(BAG[i].qty<1)BAG.splice(i,1);paint();}
+    else if(rm){BAG.splice(+rm.getAttribute("data-rm"),1);paint();}
+  });
+
+  function msg(){
+    var L=["Hello SRX Jewels! I'd like to order:",""];
+    BAG.forEach(function(it,i){
+      var bits=[],o=optsLine(it.opts);
+      if(o)bits.push(o);
+      bits.push("Qty "+it.qty);bits.push(fmt(it.price*it.qty));bits.push("Ref: "+it.id);
+      L.push((i+1)+") "+it.name);
+      L.push("    "+bits.join(" | "));
+    });
+    L.push("","Bag total: "+fmt(total()));
+    return L.join("\n");
+  }
+  document.getElementById("srxCo").addEventListener("click",function(){
+    if(BAG.length)window.open(waHref(msg()),"_blank","noopener");
+  });
+
+  var waTop=document.getElementById("waTop");
+  if(waTop&&waTop.parentNode){
+    var bb=document.createElement("button");
+    bb.className="srx-bagbtn";bb.title="Bag";bb.setAttribute("aria-label","Bag");
+    bb.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7V5.5a3 3 0 016 0V7"/></svg><span class="srx-badge" id="srxBadge" hidden>0</span>';
+    bb.addEventListener("click",openBag);
+    waTop.parentNode.insertBefore(bb,waTop.nextSibling);
+  }
+
+  /* sits beside the existing Enquire CTA, which applyVariant() keeps rewriting */
+  var pcta=document.getElementById("pcta");
+  if(pcta&&pcta.parentNode){
+    var add=document.createElement("button");
+    add.className="srx-add";add.id="srxAdd";add.type="button";add.textContent="Add to bag";
+    add.addEventListener("click",function(){
+      if(!LP)return;
+      var v=matchVar(LP,LSEL);
+      if(!v||v.usd==null)return;
+      var o=selOf(v),key=LP.id+"|"+JSON.stringify(o),ex=null;
+      for(var i=0;i<BAG.length;i++){if(BAG[i].key===key){ex=BAG[i];break;}}
+      if(ex)ex.qty++;
+      else BAG.push({key:key,id:LP.id,name:LP.name,opts:o,price:v.usd,thumb:v.thumb||(v.imgs&&v.imgs[0])||"",qty:1});
+      openBag();
+    });
+    pcta.parentNode.insertBefore(add,pcta.nextSibling);
+  }
+
+  /* price-on-request variants stay enquiry-only: no price, nothing to total */
+  function syncAdd(){
+    var el=document.getElementById("srxAdd");if(!el)return;
+    var v=null;
+    if(LP){try{v=matchVar(LP,LSEL);}catch(e){v=null;}}
+    var ok=!!(v&&v.usd!=null);
+    el.disabled=!ok;
+    el.textContent=ok?"Add to bag":"Enquire for price";
+  }
+  var pprice=document.getElementById("pprice");
+  if(pprice&&window.MutationObserver)new MutationObserver(syncAdd).observe(pprice,{childList:true,subtree:true});
+
+  paint();syncAdd();
+})();
+</script>
