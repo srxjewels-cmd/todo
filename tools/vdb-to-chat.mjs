@@ -36,13 +36,14 @@
  *   --out FILE        write to a file instead of stdout
  */
 
-import { writeFileSync, readFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 /* -------------------------------------------------------------------- *
  * Config
  * -------------------------------------------------------------------- */
 
-const DEFAULTS = {
+export const DEFAULTS = {
   base: process.env.VDB_API_BASE || 'https://api.vdbapp.com',
   endpoint: process.env.VDB_ENDPOINT || '/v1/diamonds',
   auth: process.env.VDB_AUTH || 'bearer',
@@ -93,7 +94,7 @@ function parseArgs(argv) {
  * HTTP
  * -------------------------------------------------------------------- */
 
-function authFor(cfg) {
+export function authFor(cfg) {
   const headers = {};
   let queryParam = null;
   if (cfg.auth === 'bearer') headers.Authorization = `Bearer ${cfg.key}`;
@@ -104,7 +105,7 @@ function authFor(cfg) {
   return { headers, queryParam };
 }
 
-function buildUrl(cfg, extra = {}) {
+export function buildUrl(cfg, extra = {}) {
   const url = new URL(cfg.endpoint, cfg.base);
   for (const [k, v] of Object.entries({ ...cfg.params, ...extra })) {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
@@ -114,9 +115,9 @@ function buildUrl(cfg, extra = {}) {
 }
 
 // Never let the key reach a log line or an error message.
-const redact = (s, cfg) => (cfg.key ? String(s).split(cfg.key).join('«KEY»') : String(s));
+export const redact = (s, cfg) => (cfg.key ? String(s).split(cfg.key).join('«KEY»') : String(s));
 
-async function get(url, cfg) {
+export async function get(url, cfg) {
   let res;
   try {
     res = await fetch(url, { headers: { Accept: 'application/json', ...cfg._auth.headers } });
@@ -146,7 +147,7 @@ async function get(url, cfg) {
  * Shape discovery — find the item array wherever the API happens to put it
  * -------------------------------------------------------------------- */
 
-function findItems(json) {
+export function findItems(json) {
   let best = null;
   const seen = new Set();
 
@@ -166,7 +167,7 @@ function findItems(json) {
   return best;
 }
 
-function nextUrl(json) {
+export function nextUrl(json) {
   const candidates = [
     json?.next, json?.next_page_url, json?.nextPageUrl,
     json?.links?.next, json?.paging?.next, json?.meta?.next, json?._links?.next?.href,
@@ -178,7 +179,7 @@ function nextUrl(json) {
   return null;
 }
 
-function flatten(obj, prefix = '', out = {}) {
+export function flatten(obj, prefix = '', out = {}) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? `${prefix}.${k}` : k;
     if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out);
@@ -192,7 +193,7 @@ function flatten(obj, prefix = '', out = {}) {
  * Fetching
  * -------------------------------------------------------------------- */
 
-async function fetchAll(cfg, onPage = () => {}) {
+export async function fetchAll(cfg, onPage = () => {}) {
   const rows = [];
   let page = 1;
   let url = buildUrl(cfg, { [cfg.pageParam]: page, [cfg.sizeParam]: cfg.pageSize });
@@ -222,7 +223,7 @@ async function fetchAll(cfg, onPage = () => {}) {
  * -------------------------------------------------------------------- */
 
 // Ordered by how much a jeweller actually wants to see them in a chat.
-const PREFERRED = [
+export const PREFERRED = [
   'stock_number', 'stock_no', 'stocknumber', 'sku', 'item_number', 'lot',
   'shape', 'carat', 'carats', 'weight', 'size',
   'color', 'colour', 'clarity', 'cut', 'cut_grade',
@@ -235,9 +236,9 @@ const PREFERRED = [
 
 const NOISY = /(^|[._])(id|uuid|guid|_?url|href|image|images|photo|video|thumbnail|token|created_?at|updated_?at|deleted_?at|timestamp)$/i;
 
-const leaf = (k) => k.split('.').pop().toLowerCase();
+export const leaf = (k) => k.split('.').pop().toLowerCase();
 
-function selectColumns(rows, cfg) {
+export function selectColumns(rows, cfg) {
   const all = [];
   for (const r of rows) for (const k of Object.keys(r)) if (!all.includes(k)) all.push(k);
 
@@ -274,17 +275,17 @@ function selectColumns(rows, cfg) {
 const csvCell = (v) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 const cell = (row, c) => (row[c.key] == null ? '' : String(row[c.key]));
 
-const toCSV = (rows, cols) =>
+export const toCSV = (rows, cols) =>
   [cols.map((c) => csvCell(c.label)).join(','), ...rows.map((r) => cols.map((c) => csvCell(cell(r, c))).join(','))].join('\n');
 
-const toMarkdown = (rows, cols) =>
+export const toMarkdown = (rows, cols) =>
   [
     `| ${cols.map((c) => c.label).join(' | ')} |`,
     `| ${cols.map(() => '---').join(' | ')} |`,
     ...rows.map((r) => `| ${cols.map((c) => cell(r, c).replace(/\|/g, '\\|')).join(' | ')} |`),
   ].join('\n');
 
-const toText = (rows, cols) => {
+export const toText = (rows, cols) => {
   const [first, ...rest] = cols;
   return rows
     .map((r, i) => {
@@ -294,7 +295,7 @@ const toText = (rows, cols) => {
     .join('\n');
 };
 
-const toJSON = (rows, cols) =>
+export const toJSON = (rows, cols) =>
   JSON.stringify(rows.map((r) => Object.fromEntries(cols.map((c) => [c.label, cell(r, c)]))), null, 2);
 
 /* -------------------------------------------------------------------- *
@@ -385,7 +386,13 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(`\n${err.message}`);
-  process.exitCode = 1;
-});
+// Only run when invoked directly — vdb-price-check.mjs imports the helpers above.
+const invokedDirectly = process.argv[1] &&
+  fileURLToPath(import.meta.url) === realpathSync(process.argv[1]);
+
+if (invokedDirectly) {
+  main().catch((err) => {
+    console.error(`\n${err.message}`);
+    process.exitCode = 1;
+  });
+}

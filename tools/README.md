@@ -61,3 +61,35 @@ Endpoint and auth vary by account tier, so both are configurable:
 
 `--help` lists the rest. The API key is redacted from all output, including
 error messages.
+
+## `vdb-price-check.mjs` — average per-carat price by spec
+
+Answers "what does a 1 ct Round E VVS2 cost", for a list of specs at once.
+Same connection flags as above.
+
+```bash
+export VDB_API_KEY=...
+node tools/vdb-price-check.mjs                  # the 12 specs in the file
+node tools/vdb-price-check.mjs --show 3         # also list the matched stones
+node tools/vdb-price-check.mjs --specs my.json  # your own list
+```
+
+Defaults to IGI, Surat, and the average of the first 10 matches; each row also
+carries median/low/high so you can see whether the average is meaningful or is
+riding on two outliers. Specs matching nothing are reported rather than
+silently dropped.
+
+Filtering is done client-side on the returned fields, not via VDB query
+parameters — the parameter names aren't published, but the field *values* are
+right there. If you know the server-side names, `--param lab=IGI` pushes them
+down and cuts the fetch.
+
+Carat uses the trade sieve: `1` means 1.00–1.09, `0.5` means 0.50–0.59
+(`--carat-band` to change). Shape matches loosely, so `Cushion` catches
+`Cushion Modified Brilliant`. A spec can add `"ratioMin": 1.10` for elongated
+cuts — length-to-width comes from a ratio field if there is one, otherwise it's
+parsed out of `measurements`.
+
+Field names are resolved from an `ALIASES` table at the top of the file. If a
+spec finds nothing because VDB names a field differently, `--probe` with
+`vdb-to-chat.mjs` and add the name there.
