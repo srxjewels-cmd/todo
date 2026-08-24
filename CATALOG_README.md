@@ -6,9 +6,38 @@ with **no prices**.
 
 It was built for the `D:\SHREE RAM` photo folder, but works with any folder.
 
+There are **two ways** to use it — pick whichever suits you:
+
+| | Option A — Browser tool (easiest) | Option B — Python script |
+|---|---|---|
+| Install anything? | **No** | Yes (Python, once) |
+| How | Double-click `catalog_maker.html` | Run a command |
+| Best for | Most people | Automating / large batches |
+
+Both keep your photos on your own computer and never show prices.
+
 ---
 
-## Why you run it on your own PC
+## Option A — Browser tool (no installation) ⭐ recommended
+
+1. Download **`catalog_maker.html`** from this project and save it anywhere
+   (e.g. your Desktop).
+2. **Double-click it** — it opens in your web browser (Chrome or Edge work
+   best). Tip: click **"See a demo"** first to preview the layout.
+3. Click **"Choose photo folder…"** and select `D:\SHREE RAM`.
+   The catalogue appears instantly, one section per sub-folder.
+4. (Optional) Click **"✎ Edit details"** on any item to type its material,
+   weight, purity, stone, size, description. Your entries are remembered.
+5. Click **"🖨 Save as PDF"** to make a PDF, or **"💾 Download single file"**
+   to get one shareable `.html` file (great for WhatsApp / email).
+
+Your photos never leave your computer — the page does everything locally.
+
+---
+
+## Option B — Python script (for automation)
+
+### Why run it on your own PC
 
 Your photos live in `D:\SHREE RAM` on your computer. This tool has to read
 those files, so it runs **on your PC**, not in the cloud. It only needs the

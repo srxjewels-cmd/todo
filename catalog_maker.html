@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Catalogue Maker</title>
+<style>
+  :root{
+    --ink:#2b2620; --muted:#7a7166; --line:#e7e0d5;
+    --bg:#ffffff; --panel:#faf7f2; --accent:#b8912f; --accent-dark:#9c7a24;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;}
+
+  /* ---------- Toolbar (never printed) ---------- */
+  .toolbar{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);
+    padding:12px 18px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;}
+  .toolbar .grow{flex:1 1 auto;}
+  .toolbar h1{font-family:Georgia,serif;font-size:18px;margin:0 12px 0 0;white-space:nowrap;}
+  .toolbar input[type=text]{padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:14px;min-width:200px;}
+  .toolbar label.num{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;}
+  .toolbar input[type=number]{width:56px;padding:6px;border:1px solid var(--line);border-radius:7px;}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);
+    padding:8px 13px;border-radius:8px;font-size:13.5px;}
+  button:hover{border-color:var(--accent);color:var(--accent-dark);}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  button.primary:hover{background:var(--accent-dark);color:#fff;}
+  .hint{padding:10px 18px;color:var(--muted);font-size:13px;background:var(--panel);border-bottom:1px solid var(--line);}
+  .empty{max-width:680px;margin:60px auto;padding:0 20px;text-align:center;color:var(--muted);}
+  .empty h2{font-family:Georgia,serif;color:var(--ink);font-size:24px;}
+  .empty ol{text-align:left;display:inline-block;margin-top:8px;}
+  .empty code{background:var(--panel);padding:1px 6px;border-radius:5px;}
+
+  /* ---------- Catalogue ---------- */
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 24px 72px;}
+  header.cover{text-align:center;padding:36px 16px 22px;border-bottom:2px solid var(--accent);}
+  header.cover .brand{font-family:Georgia,serif;font-size:36px;letter-spacing:1px;margin:0;}
+  header.cover .sub{color:var(--muted);margin-top:6px;font-size:14px;}
+  header.cover .meta{color:var(--muted);margin-top:12px;font-size:13px;}
+  section.category{margin-top:40px;}
+  section.category>h2{font-family:Georgia,serif;font-size:24px;margin:0 0 4px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  section.category>.cat-meta{color:var(--muted);font-size:13px;margin-bottom:16px;}
+  .grid{display:grid;gap:20px;}
+  .card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;display:flex;flex-direction:column;break-inside:avoid;}
+  .card .photo{background:var(--panel);aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .card .photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  .card .body{padding:11px 13px 14px;}
+  .card .name{font-weight:600;font-size:15px;margin:0 0 2px;}
+  .card .code{color:var(--accent-dark);font-size:12px;letter-spacing:.05em;margin:0 0 8px;}
+  .card dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px;}
+  .card dt{color:var(--muted);}
+  .card dd{margin:0;}
+  .card .edit-toggle{margin-top:10px;font-size:12px;padding:5px 9px;}
+  .editor{margin-top:10px;display:none;border-top:1px dashed var(--line);padding-top:10px;}
+  .editor.open{display:block;}
+  .editor .row{display:flex;flex-direction:column;margin-bottom:7px;}
+  .editor label{font-size:11px;color:var(--muted);margin-bottom:2px;}
+  .editor input,.editor textarea{font:inherit;font-size:12.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;width:100%;}
+  .editor textarea{resize:vertical;min-height:38px;}
+
+  footer.end{text-align:center;color:var(--muted);font-size:12px;margin-top:48px;}
+
+  @media print{
+    .toolbar,.hint,.edit-toggle,.editor{display:none !important;}
+    section.category{break-before:page;}
+    section.category:first-of-type{break-before:auto;}
+    .wrap{max-width:none;padding:0 6px;}
+    a{color:inherit;text-decoration:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>Catalogue Maker</h1>
+  <input type="text" id="title" placeholder="Catalogue title (e.g. SHREE RAM)" />
+  <label class="num">Columns
+    <input type="number" id="cols" min="1" max="6" value="3" />
+  </label>
+  <span class="grow"></span>
+  <button class="primary" id="pick">📁 Choose photo folder…</button>
+  <input type="file" id="folder" webkitdirectory directory multiple accept="image/*" style="display:none" />
+  <button id="demo">See a demo</button>
+  <button id="print">🖨 Save as PDF</button>
+  <button id="save">💾 Download single file</button>
+  <button id="expcsv">Export details (CSV)</button>
+  <button id="impcsv">Import details (CSV)</button>
+  <input type="file" id="csvfile" accept=".csv" style="display:none" />
+  <button id="clear">Clear</button>
+</div>
+
+<div class="hint" id="hint">
+  Pick the folder that holds your product photos (e.g. <code>D:\SHREE RAM</code>).
+  Put photos in sub-folders — one sub-folder per category (Rings, Necklaces, …).
+  Everything stays on your computer; nothing is uploaded. Prices are never shown.
+</div>
+
+<div id="catalog">
+  <div class="empty">
+    <h2>Make a product catalogue from your photos</h2>
+    <p>Organised by category, with details, and <strong>no prices</strong>.</p>
+    <ol>
+      <li>Arrange photos in sub-folders — one per category:<br>
+        <code>D:\SHREE RAM\Rings\</code>, <code>D:\SHREE RAM\Necklaces\</code>, …</li>
+      <li>Click <strong>Choose photo folder…</strong> and select <code>D:\SHREE RAM</code>.</li>
+      <li>Add details on any item if you like, then <strong>Save as PDF</strong> or <strong>Download single file</strong>.</li>
+    </ol>
+    <p style="margin-top:18px">New here? Click <strong>See a demo</strong> to preview the layout.</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// Detail fields (matches the Python tool's CSV; NO price field anywhere).
+const FIELDS = ["Material","Gross Weight","Net Weight","Purity","Stone","Size / Dimensions","Description"];
+const IMAGE_RE = /\.(jpe?g|png|webp|gif|bmp|tiff?|svg)$/i;
+const LS_KEY = "catalogueMaker.v1";
+
+let items = [];      // {key, category, file, name(base), code, url, isObjectUrl}
+let details = {};    // key -> {"Product Name","Product Code", ...FIELDS}
+let title = "";
+
+/* ---------- persistence (details + title survive refresh) ---------- */
+function loadStore(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    details = s.details || {};
+    title = s.title || "";
+  }catch(e){ details = {}; title = ""; }
+}
+function saveStore(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify({details, title})); }catch(e){}
+}
+
+/* ---------- helpers ---------- */
+function naturalKey(s){
+  return String(s).split(/(\d+)/).map(x => /^\d+$/.test(x) ? x.padStart(10,"0") : x.toLowerCase()).join("");
+}
+function prettify(fname){
+  let stem = fname.replace(/\.[^.]+$/,"").replace(/[_\-]+/g," ").replace(/\s+/g," ").trim();
+  return stem ? stem.replace(/\b\w/g, c => c.toUpperCase()) : fname;
+}
+function makeCode(category, i){
+  const letters = (category.replace(/[^A-Za-z0-9]/g,"").toUpperCase().slice(0,3) || "ITM");
+  return letters + "-" + String(i).padStart(3,"0");
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function anchorId(cat){ return "cat-" + cat.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""); }
+
+/* ---------- build item list from selected files ---------- */
+function buildItems(fileList){
+  const files = Array.from(fileList).filter(f => IMAGE_RE.test(f.name));
+  // Group by category derived from webkitRelativePath: root/category/.../file
+  const byCat = new Map();
+  let rootName = "Catalog";
+  for(const f of files){
+    const rel = (f.webkitRelativePath || f.name).split("/");
+    if(rel.length >= 1) rootName = rel[0] || rootName;
+    let category;
+    if(rel.length >= 3) category = rel[1];               // in a sub-folder
+    else category = rel[0] || "Catalog";                 // directly in the chosen folder
+    if(rel.length <= 2) category = rootName;             // root-level files -> folder name
+    if(!byCat.has(category)) byCat.set(category, []);
+    byCat.get(category).push(f);
+  }
+  const cats = Array.from(byCat.keys()).sort((a,b)=>naturalKey(a)<naturalKey(b)?-1:1);
+  const out = [];
+  for(const cat of cats){
+    const fs = byCat.get(cat).sort((a,b)=>naturalKey(a.webkitRelativePath||a.name)<naturalKey(b.webkitRelativePath||b.name)?-1:1);
+    fs.forEach((f,idx)=>{
+      const key = (f.webkitRelativePath || (cat+"/"+f.name));
+      out.push({
+        key, category:cat, file:f.name,
+        name:prettify(f.name), code:makeCode(cat, idx+1),
+        url:URL.createObjectURL(f), isObjectUrl:true, _file:f
+      });
+    });
+  }
+  if(!title){ title = rootName.replace(/_/g," ").trim(); document.getElementById("title").value = title; }
+  return out;
+}
+
+/* ---------- render live catalogue (with edit controls) ---------- */
+function render(){
+  const cols = Math.max(1, Math.min(6, parseInt(document.getElementById("cols").value)||3));
+  const cont = document.getElementById("catalog");
+  if(!items.length){ return; }
+
+  const cats = [];
+  const map = new Map();
+  for(const it of items){ if(!map.has(it.category)){ map.set(it.category, []); cats.push(it.category); } map.get(it.category).push(it); }
+  const total = items.length;
+  const today = new Date().toLocaleDateString(undefined,{day:"2-digit",month:"short",year:"numeric"});
+
+  let h = `<div class="wrap">
+    <header class="cover">
+      <h1 class="brand">${esc(title || "Product Catalogue")}</h1>
+      <div class="sub">Product Catalogue</div>
+      <div class="meta">${total} items &middot; ${cats.length} categories &middot; ${esc(today)}</div>
+    </header>`;
+
+  for(const cat of cats){
+    const list = map.get(cat);
+    h += `<section class="category" id="${anchorId(cat)}">
+      <h2>${esc(cat)}</h2>
+      <div class="cat-meta">${list.length} item(s)</div>
+      <div class="grid" style="grid-template-columns:repeat(${cols},1fr)">`;
+    for(const it of list){
+      const d = details[it.key] || {};
+      const name = d["Product Name"] || it.name;
+      const code = d["Product Code"] || it.code;
+      h += `<div class="card" data-key="${esc(it.key)}">
+        <div class="photo"><img src="${esc(it.url)}" alt="${esc(name)}" loading="lazy"></div>
+        <div class="body">
+          <p class="name">${esc(name)}</p>
+          <p class="code">${esc(code)}</p>
+          <dl class="detail-list">${detailRows(it.key)}</dl>
+          <button class="edit-toggle" type="button">✎ Edit details</button>
+          <div class="editor">${editorFields(it.key, name, code)}</div>
+        </div>
+      </div>`;
+    }
+    h += `</div></section>`;
+  }
+  h += `<footer class="end">Prepared with the Catalogue Maker &middot; prices intentionally omitted.</footer></div>`;
+  cont.innerHTML = h;
+}
+
+function detailRows(key){
+  const d = details[key] || {};
+  let r = "";
+  for(const f of FIELDS){ if(d[f]) r += `<dt>${esc(f)}</dt><dd>${esc(d[f])}</dd>`; }
+  return r;
+}
+function editorFields(key, name, code){
+  const d = details[key] || {};
+  let h = `<div class="row"><label>Product Name</label><input data-f="Product Name" value="${esc(d['Product Name']||name)}"></div>`;
+  h += `<div class="row"><label>Product Code</label><input data-f="Product Code" value="${esc(d['Product Code']||code)}"></div>`;
+  for(const f of FIELDS){
+    if(f==="Description") h += `<div class="row"><label>${esc(f)}</label><textarea data-f="${esc(f)}">${esc(d[f]||"")}</textarea></div>`;
+    else h += `<div class="row"><label>${esc(f)}</label><input data-f="${esc(f)}" value="${esc(d[f]||"")}"></div>`;
+  }
+  return h;
+}
+
+/* ---------- editing (event delegation) ---------- */
+document.getElementById("catalog").addEventListener("click", e=>{
+  const btn = e.target.closest(".edit-toggle");
+  if(btn){ btn.nextElementSibling.classList.toggle("open"); }
+});
+document.getElementById("catalog").addEventListener("input", e=>{
+  const inp = e.target.closest("[data-f]");
+  if(!inp) return;
+  const card = e.target.closest(".card");
+  const key = card.getAttribute("data-key");
+  const field = inp.getAttribute("data-f");
+  details[key] = details[key] || {};
+  details[key][field] = inp.value;
+  saveStore();
+  // live-update the visible name/code/detail list without collapsing the editor
+  if(field==="Product Name") card.querySelector(".name").textContent = inp.value || "";
+  else if(field==="Product Code") card.querySelector(".code").textContent = inp.value || "";
+  else card.querySelector(".detail-list").innerHTML = detailRows(key);
+});
+
+/* ---------- build a standalone HTML string (for print/download) ---------- */
+function catalogueHTML(itemSrc){
+  // itemSrc: key -> src string (dataURL for download; object URL not used here)
+  const cols = Math.max(1, Math.min(6, parseInt(document.getElementById("cols").value)||3));
+  const cats = []; const map = new Map();
+  for(const it of items){ if(!map.has(it.category)){ map.set(it.category, []); cats.push(it.category); } map.get(it.category).push(it); }
+  const total = items.length;
+  const today = new Date().toLocaleDateString(undefined,{day:"2-digit",month:"short",year:"numeric"});
+  const styleEl = document.querySelector("style").textContent;
+
+  let body = `<div class="wrap"><header class="cover">
+    <h1 class="brand">${esc(title||"Product Catalogue")}</h1>
+    <div class="sub">Product Catalogue</div>
+    <div class="meta">${total} items &middot; ${cats.length} categories &middot; ${esc(today)}</div></header>`;
+  for(const cat of cats){
+    const list = map.get(cat);
+    body += `<section class="category" id="${anchorId(cat)}"><h2>${esc(cat)}</h2>
+      <div class="cat-meta">${list.length} item(s)</div>
+      <div class="grid" style="grid-template-columns:repeat(${cols},1fr)">`;
+    for(const it of list){
+      const d = details[it.key]||{};
+      const name = d["Product Name"]||it.name, code = d["Product Code"]||it.code;
+      const src = itemSrc ? (itemSrc[it.key]||"") : it.url;
+      body += `<div class="card"><div class="photo"><img src="${esc(src)}" alt="${esc(name)}"></div>
+        <div class="body"><p class="name">${esc(name)}</p><p class="code">${esc(code)}</p>
+        <dl>${detailRows(it.key)}</dl></div></div>`;
+    }
+    body += `</div></section>`;
+  }
+  body += `<footer class="end">Prepared with the Catalogue Maker &middot; prices intentionally omitted.</footer></div>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${esc(title||"Product Catalogue")}</title><style>${styleEl}</style></head>
+    <body>${body}</body></html>`;
+}
+
+/* ---------- download single self-contained file ---------- */
+function fileToDataURL(file){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
+}
+async function downloadSingleFile(){
+  if(!items.length){ alert("Choose a photo folder first."); return; }
+  const btn = document.getElementById("save"); const old = btn.textContent;
+  btn.disabled = true;
+  const srcMap = {};
+  for(let i=0;i<items.length;i++){
+    const it = items[i];
+    btn.textContent = `Preparing ${i+1}/${items.length}…`;
+    srcMap[it.key] = it._file ? await fileToDataURL(it._file) : it.url;
+  }
+  const html = catalogueHTML(srcMap);
+  const blob = new Blob([html], {type:"text/html"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (title||"catalogue").replace(/[^\w\- ]+/g,"").replace(/\s+/g,"_") + "_Catalogue.html";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  btn.textContent = old; btn.disabled = false;
+}
+
+/* ---------- CSV export / import (columns match the Python tool) ---------- */
+function csvEscape(v){ v=(v==null?"":String(v)); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function exportCSV(){
+  if(!items.length){ alert("Choose a photo folder first."); return; }
+  const cols = ["Category","File","Product Name","Product Code",...FIELDS];
+  let out = cols.join(",")+"\n";
+  for(const it of items){
+    const d = details[it.key]||{};
+    const row = [it.category, it.file, d["Product Name"]||it.name, d["Product Code"]||it.code, ...FIELDS.map(f=>d[f]||"")];
+    out += row.map(csvEscape).join(",")+"\n";
+  }
+  const blob = new Blob([out],{type:"text/csv"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="catalog_details.csv"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function parseCSV(text){
+  const rows=[]; let row=[], cur="", q=false;
+  text = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"') q=true; else if(c===',' ){ row.push(cur); cur=""; }
+      else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=""; } else cur+=c; } }
+  if(cur.length||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.length && r.some(x=>x!==""));
+}
+function importCSV(text){
+  const rows = parseCSV(text);
+  if(!rows.length) return;
+  const head = rows[0].map(h=>h.trim());
+  const idx = name => head.indexOf(name);
+  const byFile = new Map();               // file(lower) -> details obj
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i]; const file=(r[idx("File")]||"").trim().toLowerCase(); if(!file) continue;
+    const obj={};
+    for(const col of ["Product Name","Product Code",...FIELDS]){ const j=idx(col); if(j>=0 && r[j]!=null && r[j].trim()!=="") obj[col]=r[j].trim(); }
+    byFile.set(file, obj);
+  }
+  for(const it of items){ const m=byFile.get(it.file.toLowerCase()); if(m){ details[it.key]=Object.assign(details[it.key]||{}, m); } }
+  saveStore(); render();
+}
+
+/* ---------- demo (canvas-drawn sample images; verifies the whole flow) ---------- */
+function demoImage(label, hue){
+  const c=document.createElement("canvas"); c.width=c.height=300; const g=c.getContext("2d");
+  const grd=g.createLinearGradient(0,0,300,300);
+  grd.addColorStop(0,`hsl(${hue},45%,88%)`); grd.addColorStop(1,`hsl(${hue},40%,70%)`);
+  g.fillStyle=grd; g.fillRect(0,0,300,300);
+  g.fillStyle="rgba(255,255,255,.85)"; g.beginPath(); g.arc(150,130,70,0,7); g.fill();
+  g.fillStyle="#5a4a2a"; g.font="bold 20px Georgia"; g.textAlign="center"; g.fillText(label,150,250);
+  return c.toDataURL("image/png");
+}
+function loadDemo(){
+  clearAll(true);
+  title = title || "SHREE RAM"; document.getElementById("title").value = title;
+  const demo = [
+    ["Rings","Gold Band",44],["Rings","Solitaire Ring",210],["Rings","Ruby Ring",355],
+    ["Necklaces","Pearl Strand",190],["Necklaces","Temple Necklace",38],
+    ["Earrings","Stud Earring",280],["Earrings","Drop Earring",160],
+    ["Bangles","Kada Bangle",25],
+  ];
+  const perCat = {};
+  items = demo.map(([cat,label,hue])=>{
+    perCat[cat]=(perCat[cat]||0)+1;
+    const file = label.toLowerCase().replace(/\s+/g,"_")+".png";
+    return {key:cat+"/"+file, category:cat, file, name:label, code:makeCode(cat,perCat[cat]),
+            url:demoImage(label,hue), isObjectUrl:false, _file:null};
+  });
+  // a couple of demo details to show the layout
+  details[items[0].key]=Object.assign(details[items[0].key]||{},{Material:"22K Yellow Gold","Gross Weight":"4.2 g",Purity:"916","Size / Dimensions":"US 7",Description:"Everyday plain band"});
+  details[items[3].key]=Object.assign(details[items[3].key]||{},{Material:"Silver clasp",Stone:"Fresh-water pearl","Size / Dimensions":"16 in",Description:"Single-line pearl necklace"});
+  document.getElementById("hint").style.display="none";
+  render();
+}
+
+/* ---------- clear ---------- */
+function clearAll(keepTitle){
+  for(const it of items){ if(it.isObjectUrl && it.url) URL.revokeObjectURL(it.url); }
+  items = [];
+  if(!keepTitle){ /* keep details in storage but empty the view */ }
+  document.getElementById("catalog").innerHTML = document.querySelector(".empty") ? "" : "";
+  location.hash="";
+}
+
+/* ---------- wire up ---------- */
+loadStore();
+document.getElementById("title").value = title;
+document.getElementById("title").addEventListener("input", e=>{ title=e.target.value; saveStore();
+  const b=document.querySelector(".brand"); if(b) b.textContent = title||"Product Catalogue"; });
+document.getElementById("cols").addEventListener("change", render);
+document.getElementById("pick").addEventListener("click", ()=>document.getElementById("folder").click());
+document.getElementById("folder").addEventListener("change", e=>{
+  if(!e.target.files.length) return;
+  clearAll(true);
+  items = buildItems(e.target.files);
+  if(!items.length){ alert("No image files found in that folder. Put photos (.jpg/.png) into sub-folders and try again."); return; }
+  document.getElementById("hint").style.display="none";
+  render();
+});
+document.getElementById("demo").addEventListener("click", loadDemo);
+document.getElementById("print").addEventListener("click", ()=>{ if(!items.length){ alert("Choose a photo folder first (or click ‘See a demo’)."); return; } window.print(); });
+document.getElementById("save").addEventListener("click", downloadSingleFile);
+document.getElementById("expcsv").addEventListener("click", exportCSV);
+document.getElementById("impcsv").addEventListener("click", ()=>document.getElementById("csvfile").click());
+document.getElementById("csvfile").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>importCSV(r.result); r.readAsText(f); e.target.value="";
+});
+document.getElementById("clear").addEventListener("click", ()=>{
+  if(!confirm("Clear the current catalogue view? (Saved details are kept.)")) return;
+  clearAll(true);
+  document.getElementById("catalog").innerHTML =
+    `<div class="empty"><h2>Cleared.</h2><p>Click <strong>Choose photo folder…</strong> to start again.</p></div>`;
+  document.getElementById("hint").style.display="";
+});
+</script>
+</body>
+</html>
